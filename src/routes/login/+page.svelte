@@ -91,7 +91,7 @@
         <div class="auth-error">{error}</div>
       {/if}
 
-      <form class="auth-form" onsubmit|preventDefault={handleLogin}>
+      <form class="auth-form" onsubmit={(e) => { e.preventDefault(); handleLogin(); }}>
         <div class="input-group">
           <label for="email">Email address</label>
           <div class="input-icon-wrap">

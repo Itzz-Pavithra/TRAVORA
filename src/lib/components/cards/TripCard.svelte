@@ -92,7 +92,7 @@
     {/if}
 
     <div class="card-actions mt-4">
-      <button class="btn btn-primary btn-sm w-full" onclick|stopPropagation={() => {}}>
+      <button class="btn btn-primary btn-sm w-full" onclick={(e) => { e.stopPropagation(); }}>
         {trip.status === 'past' ? 'View Trip' : 'Continue Trip'}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </button>
