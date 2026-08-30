@@ -57,68 +57,68 @@
         </svg>
 
         <!-- Marker 1 -->
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div 
+        <button 
+          type="button"
           class="map-marker-pin pin-1" 
           class:selected={activeMarker === 'p1'}
           onclick={() => activeMarker = 'p1'}
+          aria-label="Location pin 1: Baga Beach"
         >
-          <div class="pin-head">1</div>
+          <div class="pin-head"><span>1</span></div>
           <div class="pin-popup">
             <strong>Baga Beach</strong>
             <span>Day 1 • 15:00</span>
           </div>
-        </div>
+        </button>
 
         <!-- Marker 2 -->
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div 
+        <button 
+          type="button"
           class="map-marker-pin pin-2" 
           class:selected={activeMarker === 'p2'}
           onclick={() => activeMarker = 'p2'}
+          aria-label="Location pin 2: Fort Aguada"
         >
-          <div class="pin-head">2</div>
+          <div class="pin-head"><span>2</span></div>
           <div class="pin-popup">
             <strong>Fort Aguada</strong>
             <span>Day 2 • 10:30</span>
           </div>
-        </div>
+        </button>
 
         <!-- Marker 3 -->
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div 
+        <button 
+          type="button"
           class="map-marker-pin pin-3" 
           class:selected={activeMarker === 'p3'}
           onclick={() => activeMarker = 'p3'}
+          aria-label="Location pin 3: Old Goa Basilica"
         >
-          <div class="pin-head">3</div>
+          <div class="pin-head"><span>3</span></div>
           <div class="pin-popup">
             <strong>Old Goa Basilica</strong>
             <span>Day 2 • 15:30</span>
           </div>
-        </div>
+        </button>
 
         <!-- Marker 4 -->
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div 
+        <button 
+          type="button"
           class="map-marker-pin pin-4" 
           class:selected={activeMarker === 'p4'}
           onclick={() => activeMarker = 'p4'}
+          aria-label="Location pin 4: Sahakari Spice Farm"
         >
-          <div class="pin-head">4</div>
+          <div class="pin-head"><span>4</span></div>
           <div class="pin-popup">
             <strong>Sahakari Spice Farm</strong>
             <span>Day 3 • 09:30</span>
           </div>
-        </div>
+        </button>
 
         <div class="map-controls">
-          <button class="map-btn" aria-label="Zoom in">+</button>
-          <button class="map-btn" aria-label="Zoom out">−</button>
+          <button type="button" class="map-btn" aria-label="Zoom in">+</button>
+          <button type="button" class="map-btn" aria-label="Zoom out">−</button>
         </div>
 
         <div class="map-legend">
@@ -137,10 +137,9 @@
       {:else}
         <div class="locations-list flex-col gap-3">
           {#each locations as loc, i}
-            <!-- svelte-ignore a11y-click-events-have-key-events -->
-            <!-- svelte-ignore a11y-no-static-element-interactions -->
-            <div 
-              class="location-list-item card p-3"
+            <button 
+              type="button"
+              class="location-list-item card p-3 text-left w-full"
               class:highlighted={activeMarker === `p${i+1}`}
               onclick={() => activeMarker = `p${i+1}`}
             >
@@ -152,7 +151,7 @@
                 </div>
                 <span class="badge badge-forest text-xs">Day {loc.day}</span>
               </div>
-            </div>
+            </button>
           {/each}
         </div>
       {/if}

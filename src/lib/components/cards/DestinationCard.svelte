@@ -24,7 +24,7 @@
   };
 </script>
 
-<div class="dest-card card">
+<a href="/discover/{destination.id}" class="dest-card card" aria-label="View details for {destination.name}">
   <div class="dest-cover" style="background:{gradients[destination.name] || 'linear-gradient(135deg, #173F35 0%, #D97745 100%)'}">
     {#if destination.image}
       <img src={destination.image} alt={destination.name} class="img-cover" onerror={(e) => (e.currentTarget as HTMLImageElement).style.display='none'} />
@@ -32,9 +32,10 @@
     <div class="dest-overlay"></div>
     <div class="dest-emoji">{emojis[destination.name] || '✈️'}</div>
     <button
+      type="button"
       class="save-btn"
       class:saved
-      onclick={(e) => { e.stopPropagation(); onsave?.(); }}
+      onclick={(e) => { e.preventDefault(); e.stopPropagation(); onsave?.(); }}
       aria-label={saved ? 'Remove from saved' : 'Save destination'}
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
@@ -71,11 +72,19 @@
       </span>
     </div>
   </div>
-</div>
+</a>
 
 <style>
   .dest-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
     overflow: hidden;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .dest-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
   }
 
   .dest-cover {

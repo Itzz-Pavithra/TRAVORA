@@ -107,10 +107,9 @@
 
       <div class="flex-col gap-3">
         {#each challenges as chal}
-          <!-- svelte-ignore a11y-click-events-have-key-events -->
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
-          <div 
-            class="challenge-card card p-3" 
+          <button 
+            type="button"
+            class="challenge-card card p-3 text-left w-full" 
             class:completed={chal.done}
             onclick={() => toggleChallenge(chal.id)}
           >
@@ -121,7 +120,7 @@
                 <p class="text-xs text-gray">{chal.desc}</p>
               </div>
             </div>
-          </div>
+          </button>
         {/each}
       </div>
     </div>

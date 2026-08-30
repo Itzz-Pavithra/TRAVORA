@@ -413,6 +413,10 @@ export function getDestinations(): Destination[] {
   return storage.getAll<Destination>('destinations');
 }
 
+export function getDestinationById(id: string): Destination | null {
+  return storage.findOne<Destination>('destinations', d => d.id === id);
+}
+
 export function getActivities(tripId?: string): Activity[] {
   const all = storage.getAll<Activity>('activities');
   if (tripId) return all.filter(a => a.tripId === tripId);
