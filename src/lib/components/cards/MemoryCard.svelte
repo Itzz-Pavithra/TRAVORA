@@ -1,26 +1,8 @@
-<script lang="ts">
-  import { onMount } from 'svelte';
-  import type { Memory } from '$lib/types';
-  import { getBlob } from '$lib/services/memoryService';
+<script>
+  let { memory, currentUserId = '', onlike, ondelete } = $props();
 
-  interface Props {
-    memory: Memory;
-    currentUserId?: string;
-    onlike?: (id: string) => void;
-    ondelete?: (memory: Memory) => void;
-  }
-
-  let { memory, currentUserId = '', onlike, ondelete }: Props = $props();
-
-  let mediaSrc = $state<string | null>(null);
-
-  onMount(async () => {
-    if (memory.mediaKey) {
-      mediaSrc = await getBlob(memory.mediaKey);
-    }
-  });
-
-  const isLiked = $derived(memory.likes.includes(currentUserId));
+  const mediaSrc = $derived(memory.mediaKey || '');
+  const isLiked = $derived(memory.likes?.includes(currentUserId));
   const isOwner = $derived(memory.uploadedBy === currentUserId);
 </script>
 
@@ -28,8 +10,9 @@
   <div class="memory-media-container">
     {#if mediaSrc}
       {#if memory.mediaType === 'video'}
-        <!-- svelte-ignore a11y-media-has-caption -->
-        <video src={mediaSrc} controls class="memory-media"></video>
+        <video src={mediaSrc} controls class="memory-media">
+          <track kind="captions" />
+        </video>
       {:else}
         <img src={mediaSrc} alt={memory.caption || 'Travel memory'} class="memory-media" />
       {/if}
@@ -50,7 +33,7 @@
   <div class="card-body">
     <div class="flex items-center justify-between mb-2">
       <div class="flex items-center gap-2">
-        <div class="avatar avatar-sm" style="background:{memory.avatarColor}; color:white">
+        <div class="avatar avatar-sm" style="background:{memory.avatarColor || '#173F35'}; color:white">
           {memory.uploadedByName ? memory.uploadedByName[0].toUpperCase() : 'U'}
         </div>
         <span class="text-sm font-semibold text-forest">{memory.uploadedByName}</span>
@@ -70,7 +53,7 @@
         aria-label="Like memory"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        <span>{memory.likes.length}</span>
+        <span>{memory.likes?.length || 0}</span>
       </button>
 
       {#if isOwner && ondelete}

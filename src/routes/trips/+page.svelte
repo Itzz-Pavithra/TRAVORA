@@ -1,10 +1,10 @@
-<script lang="ts">
+<script>
   import { onMount } from 'svelte';
-  import { currentUser, trips, upcomingTrips, pastTrips } from '$lib/stores';
+  import { currentUser, trips, upcomingTrips, pastTrips } from '$lib/stores/index.js';
   import TripCard from '$lib/components/cards/TripCard.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
-  let activeTab = $state<'upcoming' | 'past'>('upcoming');
+  let activeTab = $state('upcoming');
 
   onMount(() => {
     if ($currentUser) {

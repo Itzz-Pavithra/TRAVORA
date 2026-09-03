@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import { goto } from '$app/navigation';
 
   const features = [

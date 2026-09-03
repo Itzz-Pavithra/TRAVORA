@@ -1,7 +1,7 @@
-<script lang="ts">
+<script>
   import { goto } from '$app/navigation';
-  import { userService } from '$lib/services/userService';
-  import { currentUser, notifications } from '$lib/stores';
+  import { authService } from '$lib/services/authService.js';
+  import { notifications } from '$lib/stores/index.js';
 
   let name = $state('');
   let email = $state('');
@@ -26,13 +26,20 @@
 
     loading = true;
     error = '';
-    await new Promise(r => setTimeout(r, 400));
 
-    const user = userService.register(name, email, password);
-    currentUser.init();
-    notifications.show(`Welcome to Travora, ${name}! Let's customize your experience.`);
-    goto('/onboarding');
-    loading = false;
+    try {
+      await authService.signUp(name, email, password);
+      notifications.show(`Welcome to Travora, ${name}! Let's customize your experience.`);
+      goto('/onboarding');
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        error = 'An account with this email already exists. Try logging in instead.';
+      } else {
+        error = err.message || 'Failed to create account. Please check your network.';
+      }
+    } finally {
+      loading = false;
+    }
   }
 </script>
 

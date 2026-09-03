@@ -1,7 +1,7 @@
-<script lang="ts">
+<script>
   import { goto } from '$app/navigation';
-  import { userService } from '$lib/services/userService';
-  import { currentUser, trips, notifications } from '$lib/stores';
+  import { authService } from '$lib/services/authService.js';
+  import { notifications } from '$lib/stores/index.js';
 
   let email = $state('');
   let password = $state('');
@@ -14,24 +14,33 @@
     loading = true;
     error = '';
 
-    // Simulate a brief loading state
-    await new Promise(r => setTimeout(r, 400));
-
-    const user = userService.login(email, password);
-    if (user) {
-      currentUser.init();
-      trips.load(user.id);
+    try {
+      const user = await authService.signIn(email, password);
       notifications.show(`Welcome back, ${user.name.split(' ')[0]}! 👋`);
       goto('/home');
-    } else {
-      error = 'Invalid email or password. Try: pavithra@travora.app / travora123';
+    } catch (err) {
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        error = 'Invalid email or password. You can also click "Use Demo Account" below.';
+      } else {
+        error = err.message || 'Login failed. Please check your network and credentials.';
+      }
+    } finally {
+      loading = false;
     }
-    loading = false;
   }
 
-  function fillDemo() {
-    email = 'pavithra@travora.app';
-    password = 'travora123';
+  async function handleDemoLogin() {
+    loading = true;
+    error = '';
+    try {
+      const user = await authService.signInDemo();
+      notifications.show(`Welcome to Travora, ${user.name.split(' ')[0]}! ✈️`);
+      goto('/home');
+    } catch (err) {
+      error = 'Could not sign in with demo account. ' + err.message;
+    } finally {
+      loading = false;
+    }
   }
 </script>
 
@@ -126,7 +135,7 @@
 
       <div class="auth-divider"><span>or</span></div>
 
-      <button class="btn btn-cream btn-lg w-full" onclick={fillDemo}>
+      <button class="btn btn-cream btn-lg w-full" onclick={handleDemoLogin} disabled={loading}>
         ✨ Use Demo Account
       </button>
 
@@ -211,7 +220,6 @@
     line-height: 1.55;
   }
 
-  /* Form panel */
   .auth-form-panel {
     display: flex;
     align-items: center;

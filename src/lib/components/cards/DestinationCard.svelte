@@ -1,199 +1,79 @@
-<script lang="ts">
-  import type { Destination } from '$lib/types';
-
-  interface Props {
-    destination: Destination;
-    saved?: boolean;
-    onsave?: () => void;
-  }
-
-  let { destination, saved = false, onsave }: Props = $props();
-
-  const gradients: Record<string, string> = {
-    'Goa': 'linear-gradient(135deg, #D97745 0%, #173F35 100%)',
-    'Kerala': 'linear-gradient(135deg, #173F35 0%, #66736F 100%)',
-    'Singapore': 'linear-gradient(135deg, #4a5550 0%, #173F35 100%)',
-    'Rajasthan': 'linear-gradient(135deg, #c4632e 0%, #173F35 100%)',
-    'Himachal Pradesh': 'linear-gradient(135deg, #173F35 0%, #4a5550 100%)',
-    'Bali': 'linear-gradient(135deg, #D97745 0%, #c4632e 100%)',
-  };
-
-  const emojis: Record<string, string> = {
-    'Goa': '🏖️', 'Kerala': '🌿', 'Singapore': '🌃',
-    'Rajasthan': '🏰', 'Himachal Pradesh': '🏔️', 'Bali': '🌺'
-  };
+<script>
+  let { destination, saved = false, onsave } = $props();
 </script>
 
-<a href="/discover/{destination.id}" class="dest-card card" aria-label="View details for {destination.name}">
-  <div class="dest-cover" style="background:{gradients[destination.name] || 'linear-gradient(135deg, #173F35 0%, #D97745 100%)'}">
-    {#if destination.image}
-      <img src={destination.image} alt={destination.name} class="img-cover" onerror={(e) => (e.currentTarget as HTMLImageElement).style.display='none'} />
-    {/if}
-    <div class="dest-overlay"></div>
-    <div class="dest-emoji">{emojis[destination.name] || '✈️'}</div>
-    <button
-      type="button"
-      class="save-btn"
-      class:saved
-      onclick={(e) => { e.preventDefault(); e.stopPropagation(); onsave?.(); }}
-      aria-label={saved ? 'Remove from saved' : 'Save destination'}
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+<div class="destination-card card">
+  <div class="dest-media-wrap">
+    <img src={destination.image} alt={destination.name} class="dest-img" />
+    <button class="dest-save-btn" onclick={() => onsave?.(destination)} aria-label="Bookmark destination">
+      {saved ? '🔖' : '🏷️'}
     </button>
-    <div class="dest-rating">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="#D97745" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      {destination.rating}
+    <div class="dest-overlay">
+      <span class="badge badge-cream text-xs">{destination.bestTime}</span>
     </div>
   </div>
 
-  <div class="card-body">
-    <div class="dest-header">
+  <div class="p-5">
+    <div class="flex items-center justify-between mb-1">
+      <h3 class="text-forest font-bold text-lg">{destination.name}</h3>
+      <span class="text-xs text-gray">⭐ {destination.rating}</span>
+    </div>
+    <p class="text-xs text-gray mb-3">📍 {destination.country} • {destination.region}</p>
+    <p class="dest-desc text-xs text-forest mb-4">{destination.description}</p>
+
+    <div class="flex items-center justify-between pt-3 border-t">
       <div>
-        <h4 class="dest-name">{destination.name}</h4>
-        <p class="dest-country text-xs text-gray">{destination.country}</p>
+        <span class="text-xs text-gray block">Est. Budget</span>
+        <strong class="text-terracotta text-sm">₹{destination.estimatedBudget?.toLocaleString('en-IN')}</strong>
       </div>
-      <div class="dest-budget">
-        <span class="text-xs text-gray">From</span>
-        <span class="text-forest font-semibold text-sm">₹{(destination.estimatedBudget / 1000).toFixed(0)}K</span>
-      </div>
-    </div>
-
-    <p class="dest-desc line-clamp-2">{destination.description}</p>
-
-    <div class="dest-footer">
-      <div class="dest-tags">
-        {#each destination.category.slice(0, 2) as cat}
-          <span class="chip">{cat}</span>
-        {/each}
-      </div>
-      <span class="best-time text-xs text-gray">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        {destination.bestTime}
-      </span>
+      <a href="/discover/{destination.id}" class="btn btn-outline btn-sm">Explore Spot →</a>
     </div>
   </div>
-</a>
+</div>
 
 <style>
-  .dest-card {
-    display: block;
-    text-decoration: none;
-    color: inherit;
+  .destination-card {
+    background: var(--white);
     overflow: hidden;
-    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-  }
-  .dest-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-md);
   }
 
-  .dest-cover {
+  .dest-media-wrap {
     position: relative;
-    height: 200px;
-    overflow: hidden;
+    width: 100%;
+    height: 190px;
+  }
+
+  .dest-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .dest-save-btn {
+    position: absolute;
+    top: var(--sp-3);
+    right: var(--sp-3);
+    background: rgba(255, 255, 255, 0.85);
+    border: none;
+    border-radius: var(--radius-full);
+    padding: 6px;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
   }
 
   .dest-overlay {
     position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(23,63,53,0.5) 0%, transparent 60%);
-  }
-
-  .dest-emoji {
-    position: absolute;
-    bottom: var(--sp-4);
-    left: var(--sp-4);
-    font-size: 2.5rem;
-    z-index: 2;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-  }
-
-  .save-btn {
-    position: absolute;
-    top: var(--sp-3);
-    right: var(--sp-3);
-    z-index: 2;
-    background: rgba(255,255,255,0.9);
-    border: none;
-    border-radius: var(--radius-sm);
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--gray);
-    transition: all var(--transition-fast);
-  }
-
-  .save-btn:hover, .save-btn.saved {
-    background: white;
-    color: var(--terracotta);
-  }
-
-  .dest-rating {
-    position: absolute;
-    top: var(--sp-3);
+    bottom: var(--sp-3);
     left: var(--sp-3);
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    background: rgba(255,255,255,0.9);
-    padding: 3px 8px;
-    border-radius: var(--radius-full);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--forest);
-  }
-
-  .dest-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: var(--sp-2);
-  }
-
-  .dest-name {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: var(--forest);
-    margin-bottom: 2px;
-  }
-
-  .dest-country { margin-bottom: 0; }
-
-  .dest-budget {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
   }
 
   .dest-desc {
-    font-size: 0.875rem;
-    color: var(--gray);
-    line-height: 1.55;
-    margin-bottom: var(--sp-3);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
-  .dest-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--sp-2);
-  }
-
-  .dest-tags {
-    display: flex;
-    gap: var(--sp-1);
-    flex-wrap: wrap;
-  }
-
-  .best-time {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    white-space: nowrap;
-  }
+  .border-t { border-top: 1px solid var(--border); }
+  .block { display: block; }
 </style>

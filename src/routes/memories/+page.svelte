@@ -1,31 +1,29 @@
-<script lang="ts">
-  import { onMount } from 'svelte';
-  import { memoryService } from '$lib/services/memoryService';
-  import { currentUser, notifications } from '$lib/stores';
+<script>
+  import { memoryService } from '$lib/services/memoryService.js';
+  import { currentUser, trips } from '$lib/stores/index.js';
   import MemoryCard from '$lib/components/cards/MemoryCard.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
-  import type { Memory } from '$lib/types';
 
-  let memories = $state<Memory[]>([]);
+  let memories = $state([]);
 
-  function loadMemories() {
-    memories = memoryService.getAll();
-  }
-
-  onMount(() => {
-    loadMemories();
+  $effect(() => {
+    if ($currentUser && $trips.length > 0) {
+      Promise.all($trips.map(t => memoryService.getAll(t.id))).then(results => {
+        memories = results.flat().sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+      });
+    }
   });
 
-  function handleLike(id: string) {
-    const uid = $currentUser?.id || 'user_demo';
-    memoryService.toggleLike(id, uid);
-    loadMemories();
+  async function handleLike(memId) {
+    const mem = memories.find(m => m.id === memId);
+    if (mem && $currentUser) {
+      await memoryService.toggleLike(mem.tripId, memId, $currentUser.id);
+    }
   }
 
-  async function handleDelete(mem: Memory) {
-    await memoryService.delete(mem);
-    notifications.show('Memory removed.');
-    loadMemories();
+  async function handleDelete(mem) {
+    await memoryService.delete(mem.tripId, mem);
+    memories = memories.filter(m => m.id !== mem.id);
   }
 </script>
 
@@ -43,25 +41,6 @@
       </div>
     </div>
 
-    <!-- Memory Map / Location Strip -->
-    <div class="memory-locations-banner card p-6 mb-8">
-      <h3 class="font-bold text-forest mb-3">📍 Memory Map Locations</h3>
-      <div class="grid-3 gap-4">
-        <div class="loc-summary-card card p-3">
-          <strong>Baga Beach, Goa</strong>
-          <span class="text-xs text-gray">18 Photos • Dec 2026</span>
-        </div>
-        <div class="loc-summary-card card p-3">
-          <strong>Fort Aguada, Goa</strong>
-          <span class="text-xs text-gray">11 Photos • Dec 2026</span>
-        </div>
-        <div class="loc-summary-card card p-3">
-          <strong>Alleppey Backwaters, Kerala</strong>
-          <span class="text-xs text-gray">23 Photos • Mar 2026</span>
-        </div>
-      </div>
-    </div>
-
     {#if memories.length === 0}
       <EmptyState 
         icon="📸"
@@ -75,31 +54,12 @@
         {#each memories as memory (memory.id)}
           <MemoryCard 
             {memory} 
-            currentUserId={$currentUser?.id || 'user_demo'}
-            onlike={handleLike}
-            ondelete={handleDelete}
+            currentUserId={$currentUser?.id || ''}
+            onlike={() => handleLike(memory.id)}
+            ondelete={() => handleDelete(memory)}
           />
         {/each}
       </div>
     {/if}
   </div>
 </div>
-
-<style>
-  .memory-locations-banner {
-    background: linear-gradient(135deg, var(--forest-10) 0%, var(--cream) 100%);
-    border: 1.5px solid var(--border);
-  }
-
-  .loc-summary-card {
-    background: var(--white);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .loc-summary-card strong {
-    font-size: 0.9375rem;
-    color: var(--forest);
-  }
-</style>

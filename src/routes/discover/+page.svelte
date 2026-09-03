@@ -1,14 +1,13 @@
-<script lang="ts">
+<script>
   import { onMount } from 'svelte';
-  import { currentUser, savedPlaces, notifications } from '$lib/stores';
-  import { getDestinations } from '$lib/data/mockData';
-  import type { Destination, SavedPlace } from '$lib/types';
+  import { currentUser, savedPlaces, notifications } from '$lib/stores/index.js';
+  import { getDestinations } from '$lib/data/mockData.js';
   import DestinationCard from '$lib/components/cards/DestinationCard.svelte';
 
-  let destinations = $state<Destination[]>([]);
+  let destinations = $state([]);
   let searchQuery = $state('');
-  let selectedCategory = $state<string>('All');
-  let selectedBudget = $state<string>('All');
+  let selectedCategory = $state('All');
+  let selectedBudget = $state('All');
 
   const categories = ['All', 'Beaches', 'Nature', 'Culture', 'Adventure', 'Relaxation', 'Food', 'Mountains', 'Shopping', 'Heritage'];
   const budgetRanges = [
@@ -41,9 +40,9 @@
     })
   );
 
-  function handleSave(dest: Destination) {
+  function handleSave(dest) {
     if (!$currentUser) return;
-    const place: SavedPlace = {
+    const place = {
       id: '',
       userId: $currentUser.id,
       placeId: dest.id,

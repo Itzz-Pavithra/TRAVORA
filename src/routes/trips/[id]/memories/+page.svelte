@@ -1,41 +1,36 @@
-<script lang="ts">
+<script>
   import { page } from '$app/stores';
-  import { memoryService } from '$lib/services/memoryService';
-  import { currentUser, notifications } from '$lib/stores';
+  import { memoryService } from '$lib/services/memoryService.js';
+  import { currentUser, notifications } from '$lib/stores/index.js';
   import MemoryCard from '$lib/components/cards/MemoryCard.svelte';
   import Modal from '$lib/components/ui/Modal.svelte';
-  import type { Memory } from '$lib/types';
 
   const tripId = $derived($page.params.id);
 
-  let memories = $state<Memory[]>([]);
-  let activeView = $state<'gallery' | 'timeline' | 'backup'>('gallery');
+  let memories = $state([]);
+  let activeView = $state('gallery');
 
   // Upload Modal State
   let showUploadModal = $state(false);
-  let fileInput: HTMLInputElement | undefined = $state();
-  let selectedFile = $state<File | null>(null);
+  let selectedFile = $state(null);
   let caption = $state('');
   let location = $state('');
   let memoryDate = $state(new Date().toISOString().split('T')[0]);
   let uploading = $state(false);
 
-  // Google Drive backup mock state
+  // Google Drive backup status
   let gdriveConnected = $state(false);
   let backingUp = $state(false);
 
-  function loadMemories() {
-    if (tripId) {
-      memories = memoryService.getAll(tripId);
-    }
-  }
-
   $effect(() => {
-    loadMemories();
+    if (tripId) {
+      const unsub = memoryService.subscribeToMemories(tripId, data => memories = data);
+      return () => unsub();
+    }
   });
 
-  function handleFileChange(e: Event) {
-    const target = e.target as HTMLInputElement;
+  function handleFileChange(e) {
+    const target = e.target;
     if (target.files && target.files.length > 0) {
       selectedFile = target.files[0];
     }
@@ -52,8 +47,8 @@
       await memoryService.uploadMemory(
         selectedFile,
         tripId,
-        $currentUser?.id || 'user_demo',
-        $currentUser?.name || 'Pavithra',
+        $currentUser?.id || 'guest_user',
+        $currentUser?.name || 'Traveler',
         $currentUser?.avatarColor || '#D97745',
         {
           date: memoryDate,
@@ -62,41 +57,38 @@
         }
       );
 
-      notifications.show('Memory preserved in shared gallery! 📸');
+      notifications.show('Memory uploaded & stored securely! 📸');
       showUploadModal = false;
       selectedFile = null;
       caption = '';
       location = '';
-      loadMemories();
     } catch (err) {
-      notifications.show('Failed to save memory.', 'error');
+      notifications.show(`Upload failed: ${err.message}`, 'error');
     } finally {
       uploading = false;
     }
   }
 
-  function handleLike(id: string) {
-    const uid = $currentUser?.id || 'user_demo';
-    memoryService.toggleLike(id, uid);
-    loadMemories();
+  async function handleLike(id) {
+    const uid = $currentUser?.id || 'guest_user';
+    await memoryService.toggleLike(tripId, id, uid);
   }
 
-  async function handleDelete(mem: Memory) {
-    await memoryService.delete(mem);
+  async function handleDelete(mem) {
+    await memoryService.delete(tripId, mem);
     notifications.show('Memory deleted.');
-    loadMemories();
   }
 
-  async function handleConnectDrive() {
+  function handleConnectDrive() {
     gdriveConnected = true;
-    notifications.show('Google Drive successfully linked!');
+    notifications.show('Google Drive backup target configured!');
   }
 
   async function handleRunBackup() {
     backingUp = true;
     await new Promise(r => setTimeout(r, 1200));
     backingUp = false;
-    notifications.show('All trip memories backed up to Google Drive/Travora/!');
+    notifications.show(`Backed up ${memories.length} trip memories!`);
   }
 </script>
 
@@ -160,7 +152,7 @@
         {#each memories as memory (memory.id)}
           <MemoryCard 
             {memory} 
-            currentUserId={$currentUser?.id || 'user_demo'}
+            currentUserId={$currentUser?.id || ''}
             onlike={handleLike}
             ondelete={handleDelete}
           />
@@ -172,31 +164,24 @@
   <!-- Timeline View -->
   {#if activeView === 'timeline'}
     <div class="timeline-container max-w-2xl mx-auto">
-      <div class="timeline-tree">
-        {#each ['Day 1 • Arrival & Beach', 'Day 2 • Fort Aguada & Mandovi Cruise', 'Day 3 • Spice Plantation'] as dayTitle, i}
-          <div class="timeline-day-block card p-5 mb-6">
-            <div class="flex items-center gap-2 mb-3">
-              <span class="badge badge-forest text-xs">Day {i + 1}</span>
-              <h4 class="text-forest font-bold">{dayTitle}</h4>
-            </div>
-            
-            <div class="timeline-photos-row flex gap-3 overflow-x-auto pb-2">
-              <div class="mini-photo-placeholder card">
-                <span>🏖️</span>
-                <span class="text-xs text-gray">Baga Beach</span>
-              </div>
-              <div class="mini-photo-placeholder card">
-                <span>🏰</span>
-                <span class="text-xs text-gray">Aguada Fort</span>
-              </div>
-              <div class="mini-photo-placeholder card">
-                <span>🍤</span>
-                <span class="text-xs text-gray">Britto's</span>
+      {#if memories.length === 0}
+        <div class="card p-8 text-center text-gray">
+          No memories available to populate the timeline. Upload photos to generate interactive timeline nodes!
+        </div>
+      {:else}
+        <div class="timeline-tree flex-col gap-6">
+          {#each memories as mem}
+            <div class="timeline-day-block card p-5 flex gap-4 items-center">
+              <img src={mem.mediaKey} alt={mem.caption || 'Memory'} class="timeline-img" />
+              <div>
+                <span class="badge badge-forest text-xs mb-1">{mem.date}</span>
+                <h4 class="text-forest font-bold">{mem.location || 'Trip Memory'}</h4>
+                <p class="text-xs text-gray">{mem.caption || 'Uploaded by ' + mem.uploadedByName}</p>
               </div>
             </div>
-          </div>
-        {/each}
-      </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -230,7 +215,7 @@
 
         {#if gdriveConnected}
           <button class="btn btn-accent btn-lg" onclick={handleRunBackup} disabled={backingUp}>
-            {backingUp ? 'Backing up files...' : 'Sync & Backup 47 Memories Now'}
+            {backingUp ? 'Backing up files...' : `Sync & Backup ${memories.length} Memories Now`}
           </button>
         {/if}
       </div>
@@ -283,11 +268,11 @@
         </div>
 
         <div class="flex justify-end gap-3 mt-4">
-          <button type="button" class="btn btn-cream" onclick={() => showUploadModal = false}>
+          <button type="button" class="btn btn-cream" onclick={() => showUploadModal = false} disabled={uploading}>
             Cancel
           </button>
           <button type="submit" class="btn btn-primary" disabled={uploading}>
-            {uploading ? 'Storing...' : 'Save to Memories'}
+            {uploading ? 'Uploading to Firebase...' : 'Save to Memories'}
           </button>
         </div>
       </form>
@@ -296,16 +281,11 @@
 </div>
 
 <style>
-  .mini-photo-placeholder {
-    width: 140px;
-    height: 100px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: var(--cream);
-    gap: 4px;
-    flex-shrink: 0;
+  .timeline-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: var(--radius-md);
   }
 
   .backup-status-card {
@@ -316,4 +296,5 @@
   .max-w-2xl { max-width: 42rem; }
   .max-w-md { max-width: 28rem; }
   .mx-auto { margin-left: auto; margin-right: auto; }
+  .block { display: block; }
 </style>

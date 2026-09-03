@@ -1,19 +1,13 @@
-<script lang="ts">
+<script>
   import { page } from '$app/stores';
-  import { onMount } from 'svelte';
-  import { tripService } from '$lib/services/tripService';
-  import { currentTrip } from '$lib/stores';
+  import { tripService } from '$lib/services/tripService.js';
+  import { currentTrip } from '$lib/stores/index.js';
   import Sidebar from '$lib/components/layout/Sidebar.svelte';
-  import type { Trip } from '$lib/types';
-  import type { Snippet } from 'svelte';
 
-  interface Props {
-    children: Snippet;
-  }
+  let { children } = $props();
 
-  let { children }: Props = $props();
-
-  let trip = $state<Trip | null>(null);
+  let trip = $state(null);
+  let loading = $state(true);
   const tripId = $derived($page.params.id);
 
   const tabs = [
@@ -31,7 +25,7 @@
     { key: 'memories', label: 'Memories', icon: '📸' }
   ];
 
-  function isTabActive(key: string) {
+  function isTabActive(key) {
     const basePath = `/trips/${tripId}`;
     if (key === '') return $page.url.pathname === basePath;
     return $page.url.pathname === `${basePath}/${key}`;
@@ -39,20 +33,26 @@
 
   $effect(() => {
     if (tripId) {
-      trip = tripService.getById(tripId);
-      currentTrip.set(trip);
+      loading = true;
+      tripService.getById(tripId).then(t => {
+        trip = t;
+        currentTrip.set(t);
+        loading = false;
+      });
     }
   });
 </script>
 
-{#if trip}
+{#if loading}
+  <div class="page-with-nav p-12 text-center">
+    <div class="spinner-lg mx-auto mb-4"></div>
+    <p class="text-gray">Loading trip workspace...</p>
+  </div>
+{:else if trip}
   <div class="trip-workspace-layout">
-    <!-- Desktop Sidebar -->
     <Sidebar {trip} />
 
-    <!-- Main Content Area -->
     <div class="trip-workspace-main">
-      <!-- Mobile Sub-navigation Bar -->
       <div class="mobile-trip-tabs">
         {#each tabs as tab}
           {@const href = tab.key === '' ? `/trips/${tripId}` : `/trips/${tripId}/${tab.key}`}
@@ -127,6 +127,16 @@
   .trip-tab-content {
     padding: var(--sp-6) var(--sp-8);
   }
+
+  .spinner-lg {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(23, 63, 53, 0.2);
+    border-top-color: var(--forest);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  .mx-auto { margin-left: auto; margin-right: auto; }
 
   @media (max-width: 900px) {
     .mobile-trip-tabs {

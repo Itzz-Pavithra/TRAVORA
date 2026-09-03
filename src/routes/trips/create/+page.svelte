@@ -1,9 +1,10 @@
-<script lang="ts">
+<script>
   import { goto } from '$app/navigation';
-  import { currentUser, trips, notifications } from '$lib/stores';
-  import { tripService } from '$lib/services/tripService';
+  import { currentUser, trips, notifications } from '$lib/stores/index.js';
+  import { tripService } from '$lib/services/tripService.js';
 
   let step = $state(1);
+  let loading = $state(false);
 
   // Form State
   let name = $state('');
@@ -12,9 +13,9 @@
   let startDate = $state('2026-12-15');
   let endDate = $state('2026-12-20');
   let travelers = $state(4);
-  let type = $state<'solo' | 'group'>('group');
+  let type = $state('group');
   let budget = $state(25000);
-  let interests = $state<string[]>(['beaches', 'food', 'photography']);
+  let interests = $state(['beaches', 'food', 'photography']);
 
   const allInterests = [
     { id: 'nature', label: '🌿 Nature' },
@@ -28,7 +29,7 @@
     { id: 'photography', label: '📸 Photography' }
   ];
 
-  function toggleInterest(id: string) {
+  function toggleInterest(id) {
     if (interests.includes(id)) {
       interests = interests.filter(i => i !== id);
     } else {
@@ -36,65 +37,57 @@
     }
   }
 
-  function handleCreateTrip() {
-    if (!destination) {
+  async function handleCreateTrip() {
+    if (!destination.trim()) {
       notifications.show('Please specify a destination.', 'error');
       return;
     }
 
-    const tripName = name.trim() || `${destination} Escape`;
-    const newTrip = tripService.create({
-      name: tripName,
-      destination,
-      country,
-      startDate,
-      endDate,
-      travelers: type === 'solo' ? 1 : travelers,
-      type,
-      budget,
-      currency: 'INR',
-      budgetSpent: 0,
-      interests,
-      status: 'upcoming',
-      ownerId: $currentUser?.id || 'user_demo',
-      memberIds: []
-    });
+    loading = true;
+    try {
+      const tripName = name.trim() || `${destination} Escape`;
+      const ownerId = $currentUser?.id || 'guest_user';
+      const ownerName = $currentUser?.name || 'Traveler';
+      const ownerEmail = $currentUser?.email || '';
 
-    // Add owner as a trip member
-    tripService.addMember({
-      tripId: newTrip.id,
-      userId: $currentUser?.id || 'user_demo',
-      name: $currentUser?.name || 'Pavithra',
-      email: $currentUser?.email || 'pavithra@travora.app',
-      avatarColor: $currentUser?.avatarColor || '#D97745',
-      role: 'owner',
-      joinedAt: new Date().toISOString(),
-      status: 'active'
-    });
-
-    // Generate initial itinerary days
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const dayCount = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-    
-    for (let i = 1; i <= Math.min(dayCount, 7); i++) {
-      const curDate = new Date(start);
-      curDate.setDate(curDate.getDate() + (i - 1));
-      tripService.createDay({
-        tripId: newTrip.id,
-        date: curDate.toISOString().split('T')[0],
-        dayNumber: i,
-        title: `Day ${i} Exploration`,
-        items: []
+      const newTrip = await tripService.create({
+        name: tripName,
+        destination,
+        country,
+        startDate,
+        endDate,
+        travelers: type === 'solo' ? 1 : travelers,
+        type,
+        budget,
+        currency: 'INR',
+        budgetSpent: 0,
+        interests,
+        status: 'upcoming',
+        ownerId,
+        memberIds: [ownerId]
       });
-    }
 
-    if ($currentUser) {
-      trips.refresh($currentUser.id);
-    }
+      await tripService.addMember(newTrip.id, {
+        userId: ownerId,
+        name: ownerName,
+        email: ownerEmail,
+        avatarColor: $currentUser?.avatarColor || '#D97745',
+        role: 'owner',
+        joinedAt: new Date().toISOString(),
+        status: 'active'
+      });
 
-    notifications.show(`Trip "${tripName}" created successfully!`);
-    goto(`/trips/${newTrip.id}`);
+      if ($currentUser) {
+        trips.load($currentUser.id);
+      }
+
+      notifications.show(`Trip "${tripName}" created successfully! 🎉`);
+      goto(`/trips/${newTrip.id}`);
+    } catch (err) {
+      notifications.show(`Failed to create trip: ${err.message}`, 'error');
+    } finally {
+      loading = false;
+    }
   }
 </script>
 
@@ -132,7 +125,6 @@
               class="input input-lg" 
               bind:value={destination} 
               placeholder="e.g. Goa, Manali, Bali, Singapore" 
-              autofocus
             />
           </div>
 
@@ -304,7 +296,7 @@
       <!-- Navigation Buttons -->
       <div class="flex items-center justify-between mt-8 pt-4 border-t">
         {#if step > 1}
-          <button class="btn btn-cream" onclick={() => step--}>
+          <button class="btn btn-cream" onclick={() => step--} disabled={loading}>
             ← Back
           </button>
         {:else}
@@ -320,8 +312,12 @@
             Next Step →
           </button>
         {:else}
-          <button class="btn btn-accent btn-lg" onclick={handleCreateTrip}>
-            Create Trip Workspace ✦
+          <button class="btn btn-accent btn-lg" onclick={handleCreateTrip} disabled={loading}>
+            {#if loading}
+              Creating Trip...
+            {:else}
+              Create Trip Workspace ✦
+            {/if}
           </button>
         {/if}
       </div>

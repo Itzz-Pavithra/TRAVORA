@@ -1,218 +1,134 @@
-<script lang="ts">
+<script>
   import { page } from '$app/stores';
-  import { notifications } from '$lib/stores';
+  import { tripService } from '$lib/services/tripService.js';
+  import { currentUser, notifications } from '$lib/stores/index.js';
 
   const tripId = $derived($page.params.id);
 
-  // Travel Quiz State
-  let quizAnswered = $state(false);
-  let selectedQuizOption = $state<number | null>(null);
-  const quizQuestion = {
-    q: 'Which famous church in Old Goa houses the mortal remains of St. Francis Xavier?',
-    options: ['Se Cathedral', 'Basilica of Bom Jesus', 'Church of St. Cajetan', 'Mae De Deus Church'],
-    correct: 1
-  };
+  let challenges = $state([]);
+  let activeTab = $state('challenges');
 
-  // Group Challenges State
-  let challenges = $state([
-    { id: 'c1', title: 'Sunset Silhouette Photo', desc: 'Capture a creative group silhouette during sunset.', done: true },
-    { id: 'c2', title: 'Local Cuisine Explorer', desc: 'Try a traditional authentic local dish together.', done: true },
-    { id: 'c3', title: 'Hidden Gem Discovery', desc: 'Find a quiet corner or viewpoint away from crowds.', done: false },
-    { id: 'c4', title: 'Early Morning Stroll', desc: 'Wake up before 7 AM for a beach or countryside walk.', done: false }
-  ]);
-
-  // Fun Prompts State
-  let promptVotes = $state<Record<string, string>>({
-    p1: 'Arun',
-    p2: 'Pavithra',
-    p3: 'Karthik'
-  });
-
-  const prompts = [
-    { id: 'p1', question: '🧭 Who is most likely to get lost?' },
-    { id: 'p2', question: '📋 Who planned the trip best?' },
-    { id: 'p3', question: '📸 Who took the best photo of the day?' }
+  const defaultQuests = [
+    { id: 'q1', text: '📸 Take a group photo during sunset' },
+    { id: 'q2', text: '🍲 Try an authentic local specialty dish' },
+    { id: 'q3', text: '🏖️ Collect a unique sea shell or souvenir' },
+    { id: 'q4', text: '💃 Dance at a beach shack or local lounge' },
+    { id: 'q5', text: '🌊 Go in the ocean/water before noon' }
   ];
 
-  function toggleChallenge(id: string) {
-    challenges = challenges.map(c => c.id === id ? { ...c, done: !c.done } : c);
-    notifications.show('Challenge updated!');
-  }
-
-  function handleQuizSubmit(idx: number) {
-    selectedQuizOption = idx;
-    quizAnswered = true;
-    if (idx === quizQuestion.correct) {
-      notifications.show('🎉 Correct! Basilica of Bom Jesus is a UNESCO World Heritage site.');
-    } else {
-      notifications.show('Almost! The correct answer is Basilica of Bom Jesus.', 'info');
+  $effect(() => {
+    if (tripId) {
+      tripService.getChallenges(tripId).then(data => challenges = data);
     }
+  });
+
+  function isCompleted(questId) {
+    const ch = challenges.find(c => c.id === questId);
+    return ch && $currentUser ? ch.completedBy?.includes($currentUser.id) : false;
   }
 
-  function votePrompt(promptId: string, name: string) {
-    promptVotes[promptId] = name;
-    notifications.show(`Voted for ${name}!`);
+  async function handleToggle(questId, text) {
+    if (!$currentUser) return;
+    await tripService.toggleChallenge(tripId, questId, text, $currentUser.id);
+    challenges = await tripService.getChallenges(tripId);
+    notifications.show('Challenge updated! 🎮');
   }
 </script>
 
 <svelte:head>
-  <title>Travel Fun & Games — Travora</title>
+  <title>Travel Fun & Challenges — Travora</title>
 </svelte:head>
 
 <div class="fun-tab">
   <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
     <div>
-      <h2 class="section-title">🎮 Travel Fun, Quizzes & Challenges</h2>
-      <p class="text-xs text-gray">Interactive group games, destination trivia, and photography quests.</p>
+      <h2 class="section-title">🎮 Travel Fun & Group Quests</h2>
+      <p class="text-xs text-gray">Interactive mini-challenges, photo scavenger hunts, and destination trivia.</p>
     </div>
   </div>
 
-  <div class="grid-3 gap-6">
-    <!-- Travel Quiz (1 col) -->
-    <div class="card p-6 flex-col justify-between">
-      <div>
-        <span class="badge badge-terracotta text-xs mb-3">🧠 Destination Trivia</span>
-        <h3 class="text-forest font-bold mb-4">{quizQuestion.q}</h3>
+  <div class="tab-nav mb-6">
+    <button 
+      class="tab-item" 
+      class:active={activeTab === 'challenges'}
+      onclick={() => activeTab = 'challenges'}
+    >
+      🏆 Trip Quests ({defaultQuests.length})
+    </button>
+    <button 
+      class="tab-item" 
+      class:active={activeTab === 'quiz'}
+      onclick={() => activeTab = 'quiz'}
+    >
+      🧩 Destination Quiz
+    </button>
+  </div>
 
-        <div class="flex-col gap-2">
-          {#each quizQuestion.options as opt, i}
-            <button 
-              class="quiz-option-btn" 
-              class:selected={selectedQuizOption === i}
-              class:correct={quizAnswered && i === quizQuestion.correct}
-              class:wrong={quizAnswered && selectedQuizOption === i && i !== quizQuestion.correct}
-              disabled={quizAnswered}
-              onclick={() => handleQuizSubmit(i)}
-            >
-              <span>{opt}</span>
-              {#if quizAnswered && i === quizQuestion.correct}
-                <span>✓</span>
-              {/if}
-            </button>
-          {/each}
-        </div>
-      </div>
-
-      {#if quizAnswered}
-        <div class="mt-4 pt-3 border-t text-xs text-gray">
-          Trivia refreshes with new destination facts every day!
-        </div>
-      {/if}
-    </div>
-
-    <!-- Trip Challenges (1 col) -->
+  {#if activeTab === 'challenges'}
     <div class="card p-6">
-      <span class="badge badge-forest text-xs mb-3">🎯 Group Quests</span>
-      <h3 class="text-forest font-bold mb-4">Trip Challenges</h3>
-
+      <h3 class="font-bold text-forest mb-4">Goa Beach Group Quests</h3>
       <div class="flex-col gap-3">
-        {#each challenges as chal}
-          <button 
-            type="button"
-            class="challenge-card card p-3 text-left w-full" 
-            class:completed={chal.done}
-            onclick={() => toggleChallenge(chal.id)}
-          >
-            <div class="flex items-start gap-3">
-              <input type="checkbox" checked={chal.done} class="challenge-checkbox" />
-              <div>
-                <strong class="text-sm text-forest" class:strikethrough={chal.done}>{chal.title}</strong>
-                <p class="text-xs text-gray">{chal.desc}</p>
-              </div>
+        {#each defaultQuests as q}
+          <div class="quest-row card p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <input 
+                type="checkbox" 
+                class="quest-checkbox" 
+                checked={isCompleted(q.id)} 
+                onchange={() => handleToggle(q.id, q.text)}
+              />
+              <span class="text-sm font-semibold text-forest" class:done={isCompleted(q.id)}>{q.text}</span>
             </div>
-          </button>
-        {/each}
-      </div>
-    </div>
 
-    <!-- Fun Prompts (1 col) -->
-    <div class="card p-6">
-      <span class="badge badge-cream text-xs mb-3">🏆 Superlatives</span>
-      <h3 class="text-forest font-bold mb-4">Fun Prompts</h3>
-
-      <div class="flex-col gap-4">
-        {#each prompts as p}
-          <div class="prompt-box card p-3">
-            <strong class="text-xs text-forest block mb-2">{p.question}</strong>
-            <div class="flex gap-2 flex-wrap">
-              {#each ['Pavithra', 'Arun', 'Priya', 'Karthik', 'Divya'] as name}
-                <button 
-                  class="chip text-xs" 
-                  class:active={promptVotes[p.id] === name}
-                  onclick={() => votePrompt(p.id, name)}
-                >
-                  {name}
-                </button>
-              {/each}
-            </div>
+            <span class="badge" class:badge-forest={isCompleted(q.id)} class:badge-cream={!isCompleted(q.id)}>
+              {isCompleted(q.id) ? 'Completed ✨' : 'Pending'}
+            </span>
           </div>
         {/each}
       </div>
     </div>
-  </div>
+  {/if}
+
+  {#if activeTab === 'quiz'}
+    <div class="card p-8 text-center max-w-xl mx-auto">
+      <div class="text-4xl mb-3">🌴</div>
+      <h3 class="font-bold text-forest mb-2">Destination Trivia: Goa</h3>
+      <p class="text-gray text-sm mb-4">What was the primary European power that ruled Goa for over 450 years?</p>
+
+      <div class="grid-2 gap-3 max-w-md mx-auto">
+        <button class="btn btn-cream" onclick={() => notifications.show('Incorrect! Try again.', 'error')}>
+          British Empire
+        </button>
+        <button class="btn btn-primary" onclick={() => notifications.show('Correct! Portugal ruled Goa until 1961. 🎉')}>
+          Portuguese Empire
+        </button>
+        <button class="btn btn-cream" onclick={() => notifications.show('Incorrect! Try again.', 'error')}>
+          Dutch East India
+        </button>
+        <button class="btn btn-cream" onclick={() => notifications.show('Incorrect! Try again.', 'error')}>
+          French Republic
+        </button>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
-  .quiz-option-btn {
-    width: 100%;
-    text-align: left;
-    background: var(--cream);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--sp-3);
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--forest);
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: all var(--transition-fast);
-  }
-
-  .quiz-option-btn:hover:not(:disabled) {
-    background: var(--cream-dark);
-    border-color: var(--forest);
-  }
-
-  .quiz-option-btn.correct {
-    background: rgba(23, 63, 53, 0.15);
-    border-color: var(--forest);
-    color: var(--forest);
-    font-weight: 700;
-  }
-
-  .quiz-option-btn.wrong {
-    background: rgba(217, 119, 69, 0.15);
-    border-color: var(--terracotta);
-    color: var(--terracotta-dark);
-  }
-
-  .challenge-card {
-    background: var(--cream);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .challenge-card.completed {
-    opacity: 0.75;
-    background: var(--cream-dark);
-  }
-
-  .challenge-checkbox {
+  .quest-checkbox {
+    width: 20px;
+    height: 20px;
     accent-color: var(--forest);
-    margin-top: 3px;
+    cursor: pointer;
   }
-
-  .strikethrough {
+  .done {
     text-decoration: line-through;
+    opacity: 0.6;
   }
-
-  .prompt-box {
+  .quest-row {
     background: var(--cream);
+    border: 1px solid var(--border);
   }
-
-  .border-t {
-    border-top: 1px solid var(--border);
-  }
+  .max-w-xl { max-width: 36rem; }
+  .max-w-md { max-width: 28rem; }
+  .mx-auto { margin-left: auto; margin-right: auto; }
 </style>

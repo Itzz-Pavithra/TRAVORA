@@ -1,63 +1,61 @@
-<script lang="ts">
-  interface Props {
-    budget: number;
-    spent: number;
-    currency?: string;
-  }
+<script>
+  let { budget = 0, spent = 0, currency = 'INR' } = $props();
 
-  let { budget, spent, currency = 'INR' }: Props = $props();
-
-  const percentage = $derived(
-    budget > 0 ? Math.min(Math.round((spent / budget) * 100), 100) : 0
-  );
-
-  const remaining = $derived(Math.max(budget - spent, 0));
+  const remaining = $derived(budget - spent);
+  const percentage = $derived(budget > 0 ? Math.min(Math.round((spent / budget) * 100), 100) : 0);
 </script>
 
-<div class="budget-card card">
-  <div class="card-body">
-    <div class="flex items-center justify-between mb-3">
-      <div>
-        <span class="text-xs text-gray uppercase tracking-wider font-semibold">Trip Budget</span>
-        <h3 class="budget-main font-serif">₹{budget.toLocaleString('en-IN')}</h3>
-      </div>
-      <div class="budget-pct-badge badge {percentage > 90 ? 'badge-terracotta' : 'badge-forest'}">
-        {percentage}% Spent
-      </div>
+<div class="budget-card card p-6">
+  <div class="flex items-center justify-between mb-2">
+    <h3 class="font-bold text-forest">Trip Budget Tracker</h3>
+    <span class="badge" class:badge-forest={remaining >= 0} class:badge-terracotta={remaining < 0}>
+      {percentage}% Used
+    </span>
+  </div>
+
+  <div class="grid-3 gap-3 my-4">
+    <div>
+      <span class="text-xs text-gray uppercase block font-semibold">Total Budget</span>
+      <strong class="text-forest text-lg">₹{budget.toLocaleString('en-IN')}</strong>
     </div>
 
-    <div class="progress-bar mb-4">
-      <div class="progress-fill" style="width: {percentage}%"></div>
+    <div>
+      <span class="text-xs text-gray uppercase block font-semibold">Spent</span>
+      <strong class="text-terracotta text-lg">₹{spent.toLocaleString('en-IN')}</strong>
     </div>
 
-    <div class="grid-2 gap-4">
-      <div class="stat-mini">
-        <span class="text-xs text-gray">Spent</span>
-        <span class="font-bold text-forest text-sm">₹{spent.toLocaleString('en-IN')}</span>
-      </div>
-      <div class="stat-mini text-right">
-        <span class="text-xs text-gray">Remaining</span>
-        <span class="font-bold text-terracotta text-sm">₹{remaining.toLocaleString('en-IN')}</span>
-      </div>
+    <div>
+      <span class="text-xs text-gray uppercase block font-semibold">Remaining</span>
+      <strong class="text-forest text-lg" class:text-terracotta={remaining < 0}>₹{remaining.toLocaleString('en-IN')}</strong>
     </div>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" style="width: {percentage}%" class:over-budget={remaining < 0}></div>
   </div>
 </div>
 
 <style>
-  .budget-main {
-    font-size: 1.5rem;
-    color: var(--forest);
-    font-weight: 700;
+  .budget-card {
+    background: var(--white);
   }
 
-  .budget-pct-badge {
-    font-size: 0.8125rem;
-    padding: 4px 10px;
+  .progress-bar-wrap {
+    height: 8px;
+    background: var(--cream);
+    border-radius: var(--radius-full);
+    overflow: hidden;
   }
 
-  .stat-mini {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--forest);
+    transition: width 0.4s ease;
   }
+
+  .progress-bar-fill.over-budget {
+    background: var(--terracotta);
+  }
+
+  .block { display: block; }
 </style>

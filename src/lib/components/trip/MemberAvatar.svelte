@@ -1,56 +1,23 @@
-<script lang="ts">
-  interface Props {
-    name: string;
-    avatarColor?: string;
-    size?: 'sm' | 'md' | 'lg' | 'xl';
-    showName?: boolean;
-    subtitle?: string;
-  }
+<script>
+  let { name = 'User', avatarColor = '#173F35', size = 'md', showName = false, subtitle = '' } = $props();
 
-  let { name, avatarColor = '#173F35', size = 'md', showName = false, subtitle }: Props = $props();
-
-  const initials = $derived(
-    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-  );
+  const initial = $derived(name ? name[0].toUpperCase() : 'U');
 </script>
 
-<div class="member-avatar-wrap" class:with-name={showName}>
-  <div class="avatar avatar-{size}" style="background:{avatarColor}; color:white">
-    {initials}
+<div class="member-avatar-wrap flex items-center gap-2">
+  <div class="avatar avatar-{size}" style="background: {avatarColor}; color: white;">
+    {initial}
   </div>
   {#if showName}
-    <div class="member-info">
-      <span class="member-name">{name}</span>
+    <div>
+      <span class="text-sm font-semibold text-forest block">{name}</span>
       {#if subtitle}
-        <span class="member-sub">{subtitle}</span>
+        <span class="text-xs text-gray block">{subtitle}</span>
       {/if}
     </div>
   {/if}
 </div>
 
 <style>
-  .member-avatar-wrap {
-    display: inline-flex;
-    align-items: center;
-  }
-
-  .member-avatar-wrap.with-name {
-    gap: var(--sp-3);
-  }
-
-  .member-info {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .member-name {
-    font-weight: 600;
-    font-size: 0.9375rem;
-    color: var(--forest);
-  }
-
-  .member-sub {
-    font-size: 0.75rem;
-    color: var(--gray);
-  }
+  .block { display: block; }
 </style>

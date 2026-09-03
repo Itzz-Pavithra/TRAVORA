@@ -1,6 +1,6 @@
-<script lang="ts">
+<script>
   import { onMount } from 'svelte';
-  import { currentUser, trips, savedPlaces } from '$lib/stores';
+  import { currentUser, trips, savedPlaces } from '$lib/stores/index.js';
   import TripCard from '$lib/components/cards/TripCard.svelte';
 
   onMount(() => {
@@ -11,7 +11,7 @@
   });
 
   const initials = $derived(
-    $currentUser?.name ? $currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'P'
+    $currentUser?.name ? $currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'TR'
   );
 </script>
 
@@ -21,7 +21,6 @@
 
 <div class="page-with-nav profile-page">
   <div class="container py-8">
-    <!-- Profile Header Card -->
     <div class="profile-header-card card p-8 mb-8">
       <div class="flex items-center gap-6 flex-wrap">
         <div class="avatar avatar-xl" style="background: {$currentUser?.avatarColor || '#D97745'}; color: white;">
@@ -30,12 +29,12 @@
 
         <div class="flex-1">
           <div class="flex items-center gap-3 mb-1">
-            <h1 class="text-2xl font-bold text-forest">{$currentUser?.name || 'Pavithra'}</h1>
+            <h1 class="text-2xl font-bold text-forest">{$currentUser?.name || 'Traveler'}</h1>
             <span class="badge badge-forest text-xs">
               {$currentUser?.travelPreference === 'solo' ? '🧍 Solo Explorer' : '👥 Group Traveler'}
             </span>
           </div>
-          <p class="text-xs text-gray mb-3">{$currentUser?.email || 'pavithra@travora.app'}</p>
+          <p class="text-xs text-gray mb-3">{$currentUser?.email || ''}</p>
           <p class="text-sm text-forest max-w-md">
             Passionate travel enthusiast exploring scenic coastlines, cultural heritage sites, and creating shared memories with friends.
           </p>
@@ -59,12 +58,12 @@
           <span class="stat-label">Saved Places</span>
         </div>
         <div class="stat-box text-center">
-          <span class="stat-number">47</span>
-          <span class="stat-label">Memories Preserved</span>
+          <span class="stat-number">{$trips.reduce((acc, t) => acc + (t.interests?.length || 0), 0)}</span>
+          <span class="stat-label">Interests Tracked</span>
         </div>
         <div class="stat-box text-center">
-          <span class="stat-number">4.9 ★</span>
-          <span class="stat-label">Traveler Score</span>
+          <span class="stat-number">5.0 ★</span>
+          <span class="stat-label">Traveler Rating</span>
         </div>
       </div>
     </div>
@@ -76,11 +75,18 @@
         <a href="/trips/create" class="btn btn-primary btn-sm">+ Plan New Trip</a>
       </div>
 
-      <div class="grid-3">
-        {#each $trips as trip (trip.id)}
-          <TripCard {trip} />
-        {/each}
-      </div>
+      {#if $trips.length === 0}
+        <div class="card p-8 text-center">
+          <p class="text-gray text-sm mb-3">No trips created yet.</p>
+          <a href="/trips/create" class="btn btn-primary btn-sm">Create Your First Trip ✦</a>
+        </div>
+      {:else}
+        <div class="grid-3">
+          {#each $trips as trip (trip.id)}
+            <TripCard {trip} />
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
 </div>

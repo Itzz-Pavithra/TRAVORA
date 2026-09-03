@@ -1,22 +1,22 @@
-<script lang="ts">
+<script>
   import { page } from '$app/stores';
-  import { tripService } from '$lib/services/tripService';
-  import { notifications } from '$lib/stores';
+  import { tripService } from '$lib/services/tripService.js';
+  import { notifications } from '$lib/stores/index.js';
   import ItineraryItemCard from '$lib/components/trip/ItineraryItemCard.svelte';
   import Modal from '$lib/components/ui/Modal.svelte';
-  import type { ItineraryDay, ItineraryItem } from '$lib/types';
 
   const tripId = $derived($page.params.id);
   
-  let days = $state<ItineraryDay[]>([]);
-  let selectedDayId = $state<string>('');
+  let days = $state([]);
+  let selectedDayId = $state('');
+  let loading = $state(false);
 
-  // Modal State for Adding/Editing Item
+  // Modal State
   let showModal = $state(false);
-  let editItemId = $state<string | null>(null);
+  let editItemId = $state(null);
   let itemTitle = $state('');
   let itemTime = $state('10:00');
-  let itemType = $state<ItineraryItem['type']>('activity');
+  let itemType = $state('activity');
   let itemLocation = $state('');
   let itemDuration = $state('1h');
   let itemNotes = $state('');
@@ -24,10 +24,13 @@
 
   $effect(() => {
     if (tripId) {
-      days = tripService.getItinerary(tripId);
-      if (days.length > 0 && !selectedDayId) {
-        selectedDayId = days[0].id;
-      }
+      const unsub = tripService.subscribeToItinerary(tripId, (data) => {
+        days = data;
+        if (days.length > 0 && !selectedDayId) {
+          selectedDayId = days[0].id;
+        }
+      });
+      return () => unsub();
     }
   });
 
@@ -47,7 +50,7 @@
     showModal = true;
   }
 
-  function openEditModal(item: ItineraryItem) {
+  function openEditModal(item) {
     editItemId = item.id;
     itemTitle = item.title;
     itemTime = item.time;
@@ -59,46 +62,54 @@
     showModal = true;
   }
 
-  function handleSaveItem() {
+  async function handleSaveItem() {
     if (!itemTitle.trim() || !selectedDayId) return;
 
-    if (editItemId) {
-      tripService.updateItem(selectedDayId, editItemId, {
-        title: itemTitle,
-        time: itemTime,
-        type: itemType,
-        location: itemLocation,
-        duration: itemDuration,
-        notes: itemNotes,
-        cost: itemCost
-      });
-      notifications.show('Activity updated successfully!');
-    } else {
-      tripService.addItem(selectedDayId, tripId, {
-        title: itemTitle,
-        time: itemTime,
-        type: itemType,
-        location: itemLocation,
-        duration: itemDuration,
-        notes: itemNotes,
-        cost: itemCost,
-        order: currentDay ? currentDay.items.length + 1 : 1
-      });
-      notifications.show('Added new activity to itinerary!');
+    loading = true;
+    try {
+      if (editItemId) {
+        await tripService.updateItem(tripId, selectedDayId, editItemId, {
+          title: itemTitle,
+          time: itemTime,
+          type: itemType,
+          location: itemLocation,
+          duration: itemDuration,
+          notes: itemNotes,
+          cost: itemCost
+        });
+        notifications.show('Activity updated!');
+      } else {
+        await tripService.addItem(tripId, selectedDayId, {
+          title: itemTitle,
+          time: itemTime,
+          type: itemType,
+          location: itemLocation,
+          duration: itemDuration,
+          notes: itemNotes,
+          cost: itemCost,
+          order: currentDay ? (currentDay.items?.length || 0) + 1 : 1
+        });
+        notifications.show('Added new activity to itinerary!');
+      }
+      showModal = false;
+    } catch (err) {
+      notifications.show(`Error: ${err.message}`, 'error');
+    } finally {
+      loading = false;
     }
-
-    days = tripService.getItinerary(tripId);
-    showModal = false;
   }
 
-  function handleDeleteItem(itemId: string) {
+  async function handleDeleteItem(itemId) {
     if (!selectedDayId) return;
-    tripService.deleteItem(selectedDayId, itemId);
-    days = tripService.getItinerary(tripId);
-    notifications.show('Activity removed from itinerary.');
+    try {
+      await tripService.deleteItem(tripId, selectedDayId, itemId);
+      notifications.show('Activity removed.');
+    } catch (err) {
+      notifications.show(`Failed to delete: ${err.message}`, 'error');
+    }
   }
 
-  function handleAddDay() {
+  async function handleAddDay() {
     const nextDayNum = days.length + 1;
     const lastDay = days[days.length - 1];
     let nextDate = new Date().toISOString().split('T')[0];
@@ -109,17 +120,18 @@
       nextDate = d.toISOString().split('T')[0];
     }
 
-    const newDay = tripService.createDay({
-      tripId,
-      date: nextDate,
-      dayNumber: nextDayNum,
-      title: `Day ${nextDayNum} Exploration`,
-      items: []
-    });
-
-    days = tripService.getItinerary(tripId);
-    selectedDayId = newDay.id;
-    notifications.show(`Created Day ${nextDayNum}!`);
+    try {
+      const newDay = await tripService.createDay(tripId, {
+        date: nextDate,
+        dayNumber: nextDayNum,
+        title: `Day ${nextDayNum} Exploration`,
+        items: []
+      });
+      selectedDayId = newDay.id;
+      notifications.show(`Created Day ${nextDayNum}!`);
+    } catch (err) {
+      notifications.show(`Failed to create day: ${err.message}`, 'error');
+    }
   }
 </script>
 
@@ -144,7 +156,6 @@
     </div>
   </div>
 
-  <!-- Day Selector Pills -->
   <div class="day-pills-wrap mb-8">
     {#each days as day}
       <button 
@@ -158,7 +169,6 @@
     {/each}
   </div>
 
-  <!-- Selected Day Timeline -->
   {#if currentDay}
     <div class="current-day-container">
       <div class="current-day-header card p-4 mb-6 flex items-center justify-between">
@@ -168,10 +178,10 @@
             {new Date(currentDay.date).toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </span>
         </div>
-        <span class="badge badge-forest text-xs">{currentDay.items.length} Activities</span>
+        <span class="badge badge-forest text-xs">{currentDay.items?.length || 0} Activities</span>
       </div>
 
-      {#if currentDay.items.length === 0}
+      {#if !currentDay.items || currentDay.items.length === 0}
         <div class="card p-10 text-center">
           <div class="text-4xl mb-2">🏖️</div>
           <h4 class="text-forest mb-1">No activities for Day {currentDay.dayNumber}</h4>
@@ -182,7 +192,7 @@
         </div>
       {:else}
         <div class="itinerary-timeline">
-          {#each currentDay.items.sort((a, b) => a.time.localeCompare(b.time)) as item (item.id)}
+          {#each currentDay.items.slice().sort((a, b) => a.time.localeCompare(b.time)) as item (item.id)}
             <ItineraryItemCard 
               {item} 
               onedit={openEditModal}
@@ -194,7 +204,6 @@
     </div>
   {/if}
 
-  <!-- Add/Edit Item Modal -->
   {#if showModal}
     <Modal 
       title={editItemId ? 'Edit Activity' : 'Add Activity'} 
@@ -278,10 +287,10 @@
         </div>
 
         <div class="flex justify-end gap-3 mt-4">
-          <button type="button" class="btn btn-cream" onclick={() => showModal = false}>
+          <button type="button" class="btn btn-cream" onclick={() => showModal = false} disabled={loading}>
             Cancel
           </button>
-          <button type="submit" class="btn btn-primary">
+          <button type="submit" class="btn btn-primary" disabled={loading}>
             {editItemId ? 'Save Changes' : 'Add to Schedule'}
           </button>
         </div>

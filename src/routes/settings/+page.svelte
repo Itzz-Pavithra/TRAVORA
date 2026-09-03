@@ -1,38 +1,54 @@
-<script lang="ts">
+<script>
   import { goto } from '$app/navigation';
-  import { currentUser, notifications } from '$lib/stores';
-  import { userService } from '$lib/services/userService';
-  import { storage } from '$lib/services/storage';
+  import { currentUser, notifications } from '$lib/stores/index.js';
+  import { userService } from '$lib/services/userService.js';
 
-  let name = $state($currentUser?.name || 'Pavithra');
-  let email = $state($currentUser?.email || 'pavithra@travora.app');
-  let preference = $state<'solo' | 'group'>($currentUser?.travelPreference || 'group');
-  let currency = $state('INR');
-  let language = $state('en');
-  let profileVisibility = $state<'public' | 'friends' | 'private'>('public');
+  let name = $state($currentUser?.name || '');
+  let email = $state($currentUser?.email || '');
+  let preference = $state($currentUser?.travelPreference || 'group');
+  let currency = $state($currentUser?.currency || 'INR');
+  let language = $state($currentUser?.language || 'en');
+  let profileVisibility = $state($currentUser?.profileVisibility || 'public');
+  let saving = $state(false);
 
-  function handleSaveProfile() {
-    userService.updateCurrentUser({
-      name: name.trim(),
-      email: email.trim(),
-      travelPreference: preference,
-      currency,
-      language,
-      profileVisibility
-    });
-    currentUser.refresh();
-    notifications.show('Settings updated successfully!');
+  $effect(() => {
+    if ($currentUser) {
+      name = $currentUser.name || '';
+      email = $currentUser.email || '';
+      preference = $currentUser.travelPreference || 'group';
+      currency = $currentUser.currency || 'INR';
+      language = $currentUser.language || 'en';
+      profileVisibility = $currentUser.profileVisibility || 'public';
+    }
+  });
+
+  async function handleSaveProfile() {
+    if (!$currentUser) return;
+    saving = true;
+    try {
+      const updated = await userService.updateUser($currentUser.id, {
+        name: name.trim(),
+        email: email.trim(),
+        travelPreference: preference,
+        currency,
+        language,
+        profileVisibility
+      });
+      if (updated) {
+        currentUser.set(updated);
+      }
+      notifications.show('Settings updated in Cloud Firestore!');
+    } catch (err) {
+      notifications.show(`Failed to save settings: ${err.message}`, 'error');
+    } finally {
+      saving = false;
+    }
   }
 
-  function handleLogout() {
-    currentUser.logout();
+  async function handleLogout() {
+    await currentUser.logout();
     notifications.show('Logged out from Travora.');
     goto('/');
-  }
-
-  function handleResetDemoData() {
-    storage.clearAll();
-    window.location.href = '/';
   }
 </script>
 
@@ -45,7 +61,7 @@
     <div class="settings-header mb-8">
       <p class="section-label">Account & Preferences</p>
       <h1 class="section-title">Settings</h1>
-      <p class="section-desc">Manage profile details, trip defaults, privacy controls, and local storage.</p>
+      <p class="section-desc">Manage profile details, trip defaults, privacy controls, and Firebase storage.</p>
     </div>
 
     <form class="flex-col gap-6" onsubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}>
@@ -116,8 +132,8 @@
 
       <!-- Action Buttons -->
       <div class="flex items-center justify-between pt-2">
-        <button type="submit" class="btn btn-primary btn-lg">
-          Save Settings
+        <button type="submit" class="btn btn-primary btn-lg" disabled={saving}>
+          {saving ? 'Saving...' : 'Save Settings'}
         </button>
 
         <button type="button" class="btn btn-outline" onclick={handleLogout}>
@@ -125,18 +141,6 @@
         </button>
       </div>
     </form>
-
-    <!-- Data Management & Reset -->
-    <div class="card p-6 mt-10 border border-red">
-      <h3 class="font-bold text-forest mb-2">Storage & Demo Data</h3>
-      <p class="text-xs text-gray mb-4">
-        Travora stores all state locally in your browser (localStorage & IndexedDB). You can reset to fresh seed data at any time.
-      </p>
-
-      <button class="btn btn-cream btn-sm" onclick={handleResetDemoData}>
-        ⚠️ Reset Local Demo Data & Re-seed
-      </button>
-    </div>
   </div>
 </div>
 

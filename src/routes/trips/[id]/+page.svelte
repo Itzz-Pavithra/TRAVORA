@@ -1,26 +1,32 @@
-<script lang="ts">
+<script>
   import { page } from '$app/stores';
-  import { tripService } from '$lib/services/tripService';
-  import { currentUser } from '$lib/stores';
+  import { tripService } from '$lib/services/tripService.js';
   import MemberAvatar from '$lib/components/trip/MemberAvatar.svelte';
   import BudgetCard from '$lib/components/trip/BudgetCard.svelte';
-  import type { Trip, TripMember, ItineraryDay, Expense, Message } from '$lib/types';
 
   const tripId = $derived($page.params.id);
-  
-  let trip = $state<Trip | null>(null);
-  let members = $state<TripMember[]>([]);
-  let itinerary = $state<ItineraryDay[]>([]);
-  let expenses = $state<Expense[]>([]);
-  let messages = $state<Message[]>([]);
+
+  let trip = $state(null);
+  let members = $state([]);
+  let itinerary = $state([]);
+  let expenses = $state([]);
+  let messages = $state([]);
 
   $effect(() => {
     if (tripId) {
-      trip = tripService.getById(tripId);
-      members = tripService.getMembers(tripId);
-      itinerary = tripService.getItinerary(tripId);
-      expenses = tripService.getExpenses(tripId);
-      messages = tripService.getMessages(tripId);
+      tripService.getById(tripId).then(t => trip = t);
+
+      const unMem = tripService.subscribeToMembers(tripId, m => members = m);
+      const unIt = tripService.subscribeToItinerary(tripId, i => itinerary = i);
+      const unExp = tripService.subscribeToExpenses(tripId, e => expenses = e);
+      const unMsg = tripService.subscribeToMessages(tripId, ms => messages = ms);
+
+      return () => {
+        unMem();
+        unIt();
+        unExp();
+        unMsg();
+      };
     }
   });
 
@@ -28,7 +34,8 @@
     expenses.reduce((sum, e) => sum + e.amount, 0)
   );
 
-  function formatDate(d: string) {
+  function formatDate(d) {
+    if (!d) return '';
     return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 </script>
@@ -39,11 +46,10 @@
 
 {#if trip}
   <div class="trip-overview">
-    <!-- Trip Banner -->
     <div class="overview-banner card mb-6">
       <div class="banner-overlay"></div>
       <div class="banner-content">
-        <span class="badge badge-cream text-xs mb-2">{trip.status.toUpperCase()}</span>
+        <span class="badge badge-cream text-xs mb-2">{trip.status?.toUpperCase() || 'UPCOMING'}</span>
         <h1 class="banner-title display-serif">{trip.name}</h1>
         <p class="banner-meta">
           📍 {trip.destination}, {trip.country} • 📅 {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
@@ -51,13 +57,12 @@
       </div>
     </div>
 
-    <!-- Quick Stats Grid -->
     <div class="grid-4 mb-6">
       <div class="stat-card">
         <div class="stat-icon forest-bg">👥</div>
         <div>
           <span class="text-xs text-gray uppercase tracking-wider font-semibold">Travelers</span>
-          <h4 class="text-forest font-bold">{trip.travelers} Members</h4>
+          <h4 class="text-forest font-bold">{members.length || trip.travelers || 1} Members</h4>
         </div>
       </div>
 
@@ -87,9 +92,8 @@
     </div>
 
     <div class="grid-2 gap-6">
-      <!-- Left Column: Budget & Itinerary Snapshot -->
       <div class="flex-col gap-6">
-        <BudgetCard budget={trip.budget} spent={totalSpent} />
+        <BudgetCard budget={trip.budget || 0} spent={totalSpent} />
 
         <div class="card p-6">
           <div class="flex items-center justify-between mb-4">
@@ -106,7 +110,7 @@
                   <span class="badge badge-forest text-xs">Day {day.dayNumber}</span>
                   <div class="flex-1">
                     <strong class="text-sm text-forest">{day.title}</strong>
-                    <span class="text-xs text-gray block">{day.items.length} scheduled items</span>
+                    <span class="text-xs text-gray block">{day.items?.length || 0} scheduled items</span>
                   </div>
                 </div>
               {/each}
@@ -115,9 +119,7 @@
         </div>
       </div>
 
-      <!-- Right Column: Members & Quick Actions -->
       <div class="flex-col gap-6">
-        <!-- Members Card -->
         <div class="card p-6">
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-bold text-forest">Trip Members ({members.length})</h3>
@@ -129,7 +131,7 @@
               <div class="member-chip-item">
                 <MemberAvatar 
                   name={member.name} 
-                  avatarColor={member.avatarColor} 
+                  avatarColor={member.avatarColor || '#173F35'} 
                   size="sm" 
                   showName={true} 
                   subtitle={member.role === 'owner' ? 'Trip Owner' : 'Member'}
@@ -139,7 +141,6 @@
           </div>
         </div>
 
-        <!-- Quick Links Hub -->
         <div class="card p-6">
           <h3 class="font-bold text-forest mb-4">Explore Workspace Tools</h3>
           <div class="grid-2 gap-3">

@@ -1,22 +1,22 @@
-<script lang="ts">
+<script>
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { getDestinationById, getActivities, getAccommodations, getTransportation } from '$lib/data/mockData';
-  import { currentUser, savedPlaces, notifications } from '$lib/stores';
-  import type { Destination, Activity, Accommodation, Transportation, SavedPlace } from '$lib/types';
+  import { getDestinations, getActivities, getAccommodations, getTransportation } from '$lib/data/mockData.js';
+  import { currentUser, savedPlaces, notifications } from '$lib/stores/index.js';
 
   const destId = $derived($page.params.id);
-  let destination = $state<Destination | null>(null);
-  let activities = $state<Activity[]>([]);
-  let stays = $state<Accommodation[]>([]);
-  let transports = $state<Transportation[]>([]);
+  let destination = $state(null);
+  let activities = $state([]);
+  let stays = $state([]);
+  let transports = $state([]);
 
   $effect(() => {
     if (destId) {
-      destination = getDestinationById(destId);
-      activities = getActivities().slice(0, 4);
-      stays = getAccommodations().slice(0, 3);
-      transports = getTransportation().slice(0, 3);
+      const allDests = getDestinations();
+      destination = allDests.find(d => d.id === destId) || allDests[0];
+      activities = getActivities(destId).slice(0, 4);
+      stays = getAccommodations(destId).slice(0, 3);
+      transports = getTransportation(destId).slice(0, 3);
     }
   });
 
@@ -29,7 +29,7 @@
       notifications.show('Please sign in to save destinations.', 'error');
       return;
     }
-    const place: SavedPlace = {
+    const place = {
       id: '',
       userId: $currentUser.id,
       placeId: destination.id,
@@ -59,7 +59,7 @@
     <div class="dest-hero">
       <div class="dest-hero-bg" style="background: linear-gradient(135deg, var(--forest) 0%, #1f5448 100%)">
         {#if destination.image}
-          <img src={destination.image} alt={destination.name} class="img-cover hero-img" onerror={(e) => (e.currentTarget as HTMLImageElement).style.display='none'} />
+          <img src={destination.image} alt={destination.name} class="img-cover hero-img" />
         {/if}
         <div class="hero-overlay"></div>
       </div>
@@ -73,7 +73,7 @@
           <div>
             <div class="flex items-center gap-2 mb-2">
               <span class="badge badge-terracotta">📍 {destination.country}</span>
-              <span class="badge badge-cream">⭐ {destination.rating} ({destination.reviewCount.toLocaleString()} reviews)</span>
+              <span class="badge badge-cream">⭐ {destination.rating} ({destination.reviewCount?.toLocaleString()} reviews)</span>
             </div>
             <h1 class="dest-title display-serif">{destination.name}</h1>
             <p class="dest-sub text-white opacity-90">Best Time: {destination.bestTime}</p>
@@ -107,14 +107,14 @@
 
             <h4 class="font-bold text-forest text-md mb-3">Signature Highlights</h4>
             <div class="flex gap-2 flex-wrap mb-6">
-              {#each destination.highlights as highlight}
+              {#each destination.highlights || [] as highlight}
                 <span class="chip chip-lg">✨ {highlight}</span>
               {/each}
             </div>
 
             <h4 class="font-bold text-forest text-md mb-3">Categories</h4>
             <div class="flex gap-2 flex-wrap">
-              {#each destination.category as cat}
+              {#each destination.category || [] as cat}
                 <span class="badge badge-forest">{cat}</span>
               {/each}
             </div>
@@ -135,7 +135,7 @@
                     <p class="text-xs text-gray">{act.location} • ⏱️ {act.duration}</p>
                   </div>
                   <div class="text-right flex-shrink-0">
-                    <span class="text-forest font-bold text-md block">₹{act.estimatedCost.toLocaleString('en-IN')}</span>
+                    <span class="text-forest font-bold text-md block">₹{act.estimatedCost?.toLocaleString('en-IN')}</span>
                     <button class="btn btn-ghost btn-sm mt-1" onclick={handleStartTrip}>+ Plan in Trip</button>
                   </div>
                 </div>
@@ -149,11 +149,11 @@
             <div class="grid-2 gap-4">
               {#each stays as stay}
                 <div class="card p-4 bg-cream">
-                  <span class="badge badge-forest text-xs mb-2">{stay.type.toUpperCase()}</span>
+                  <span class="badge badge-forest text-xs mb-2">{stay.type?.toUpperCase()}</span>
                   <h4 class="font-bold text-forest mb-1">{stay.name}</h4>
                   <p class="text-xs text-gray mb-2">📍 {stay.location}</p>
                   <div class="flex items-center justify-between text-xs pt-2 border-t">
-                    <span class="text-terracotta font-bold">₹{stay.pricePerNight.toLocaleString('en-IN')} / night</span>
+                    <span class="text-terracotta font-bold">₹{stay.pricePerNight?.toLocaleString('en-IN')} / night</span>
                     <span>⭐ {stay.rating}</span>
                   </div>
                 </div>
@@ -168,7 +168,7 @@
           <div class="card p-6 bg-forest text-white">
             <p class="text-xs text-terracotta-light uppercase tracking-wider font-bold mb-1">Estimated Travel Budget</p>
             <h2 class="text-3xl font-bold font-serif text-white mb-2">
-              ₹{(destination.estimatedBudget).toLocaleString('en-IN')}
+              ₹{(destination.estimatedBudget || 25000).toLocaleString('en-IN')}
             </h2>
             <p class="text-xs text-white opacity-80 mb-4">Average cost per traveler for a 4-5 day trip, including stay, food, and activities.</p>
 
@@ -184,7 +184,7 @@
               {#each transports as t}
                 <div class="p-3 bg-cream rounded-md flex items-center justify-between">
                   <div>
-                    <strong class="text-forest block">{t.provider} ({t.type.toUpperCase()})</strong>
+                    <strong class="text-forest block">{t.provider} ({t.type?.toUpperCase()})</strong>
                     <span>{t.from} → {t.to}</span>
                   </div>
                   <span class="text-forest font-bold">₹{t.price}</span>
@@ -221,6 +221,9 @@
     position: absolute;
     inset: 0;
     z-index: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .hero-overlay {

@@ -1,105 +1,74 @@
-<script lang="ts">
-  import type { Message } from '$lib/types';
+<script>
+  let { msg, currentUserId = '' } = $props();
 
-  interface Props {
-    message: Message;
-    isOwn: boolean;
-  }
-
-  let { message, isOwn }: Props = $props();
-
-  function formatTime(iso: string) {
-    return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-  }
+  const isMe = $derived(msg.senderId === currentUserId);
 </script>
 
-<div class="chat-message-row" class:own={isOwn}>
-  {#if !isOwn}
-    <div class="avatar avatar-sm flex-shrink-0" style="background:{message.avatarColor}; color:white">
-      {message.userName ? message.userName[0].toUpperCase() : 'U'}
+<div class="chat-msg-row flex gap-3" class:is-me={isMe}>
+  {#if !isMe}
+    <div class="avatar avatar-sm flex-shrink-0" style="background: {msg.senderAvatarColor || '#173F35'}; color: white;">
+      {msg.senderName ? msg.senderName[0].toUpperCase() : 'U'}
     </div>
   {/if}
 
-  <div class="message-body">
-    {#if !isOwn}
-      <span class="sender-name">{message.userName}</span>
+  <div class="msg-bubble-wrap" class:align-end={isMe}>
+    {#if !isMe}
+      <span class="text-xs text-gray font-semibold mb-1 block">{msg.senderName}</span>
     {/if}
-    <div class="message-bubble" class:own-bubble={isOwn}>
-      <p class="message-text">{message.content}</p>
-      <span class="message-time">{formatTime(message.timestamp)}</span>
+    <div class="msg-bubble" class:me-bubble={isMe}>
+      <p class="msg-text">{msg.text}</p>
+      <span class="msg-time">{new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
     </div>
   </div>
-
-  {#if isOwn}
-    <div class="avatar avatar-sm flex-shrink-0" style="background:{message.avatarColor}; color:white">
-      {message.userName ? message.userName[0].toUpperCase() : 'U'}
-    </div>
-  {/if}
 </div>
 
 <style>
-  .chat-message-row {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--sp-2);
-    margin-bottom: var(--sp-3);
+  .chat-msg-row {
+    margin-bottom: var(--sp-2);
   }
 
-  .chat-message-row.own {
+  .chat-msg-row.is-me {
     justify-content: flex-end;
   }
 
-  .message-body {
-    display: flex;
-    flex-direction: column;
+  .msg-bubble-wrap {
     max-width: 70%;
   }
 
-  .chat-message-row.own .message-body {
+  .msg-bubble-wrap.align-end {
+    display: flex;
+    flex-direction: column;
     align-items: flex-end;
   }
 
-  .sender-name {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--gray);
-    margin-bottom: 2px;
-    margin-left: var(--sp-2);
-  }
-
-  .message-bubble {
+  .msg-bubble {
     background: var(--white);
-    padding: var(--sp-3) var(--sp-4);
-    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 2px;
-    box-shadow: var(--shadow-sm);
     border: 1px solid var(--border);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--radius-md);
     position: relative;
   }
 
-  .message-bubble.own-bubble {
+  .me-bubble {
     background: var(--forest);
     color: var(--white);
-    border-radius: var(--radius-lg) var(--radius-lg) 2px var(--radius-lg);
-    border-color: var(--forest);
+    border: none;
   }
 
-  .message-text {
-    font-size: 0.9375rem;
-    line-height: 1.45;
-    color: inherit;
+  .msg-text {
+    font-size: 0.875rem;
+    line-height: 1.4;
     margin: 0;
-    word-break: break-word;
   }
 
-  .message-time {
+  .msg-time {
     font-size: 0.6875rem;
-    color: var(--gray-light);
+    opacity: 0.7;
     display: block;
     text-align: right;
     margin-top: 4px;
   }
 
-  .message-bubble.own-bubble .message-time {
-    color: rgba(255, 255, 255, 0.7);
-  }
+  .block { display: block; }
+  .flex-shrink-0 { flex-shrink: 0; }
 </style>

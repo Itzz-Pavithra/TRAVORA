@@ -1,137 +1,85 @@
-<script lang="ts">
-  import type { Poll } from '$lib/types';
-
-  interface Props {
-    poll: Poll;
-    currentUserId?: string;
-    onvote?: (pollId: string, optionId: string) => void;
-  }
-
-  let { poll, currentUserId = '', onvote }: Props = $props();
+<script>
+  let { poll, currentUserId = '', onvote } = $props();
 
   const totalVotes = $derived(
-    poll.options.reduce((sum, opt) => sum + opt.votes.length, 0)
+    poll.options.reduce((sum, opt) => sum + (opt.votes?.length || 0), 0)
   );
 
   const hasVoted = $derived(
-    poll.votedBy.includes(currentUserId)
+    poll.votedBy?.includes(currentUserId)
   );
-
-  function getPercentage(votesCount: number) {
-    if (totalVotes === 0) return 0;
-    return Math.round((votesCount / totalVotes) * 100);
-  }
 </script>
 
-<div class="poll-card card">
-  <div class="card-body">
-    <div class="flex items-center justify-between mb-2">
-      <span class="badge {poll.status === 'active' ? 'badge-forest' : 'badge-gray'} text-xs">
-        {poll.status === 'active' ? '● Active Poll' : 'Closed'}
-      </span>
-      <span class="text-xs text-gray">{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</span>
-    </div>
+<div class="poll-card card p-6">
+  <div class="flex items-center justify-between mb-2">
+    <span class="badge badge-forest text-xs">POLL</span>
+    <span class="text-xs text-gray">{totalVotes} Total Votes</span>
+  </div>
 
-    <h4 class="poll-question">{poll.question}</h4>
-    <p class="poll-meta text-xs text-gray mb-4">Created by {poll.createdByName}</p>
+  <h3 class="poll-question text-forest font-bold text-lg mb-4">{poll.question}</h3>
 
-    <div class="poll-options">
-      {#each poll.options as option}
-        {@const userVotedForThis = option.votes.includes(currentUserId)}
-        {@const pct = getPercentage(option.votes.length)}
-        
-        <button
-          class="poll-option-btn"
-          class:selected={userVotedForThis}
-          class:disabled={hasVoted || poll.status === 'closed'}
-          disabled={hasVoted || poll.status === 'closed'}
-          onclick={() => onvote?.(poll.id, option.id)}
-        >
-          <div class="poll-fill" style="width: {hasVoted || poll.status === 'closed' ? pct : 0}%"></div>
-          <div class="poll-option-content">
-            <span class="option-text">
-              {#if userVotedForThis}✓ {/if}
-              {option.text}
-            </span>
-            {#if hasVoted || poll.status === 'closed'}
-              <span class="option-pct">{pct}% ({option.votes.length})</span>
-            {/if}
-          </div>
-        </button>
-      {/each}
-    </div>
+  <div class="poll-options flex-col gap-3">
+    {#each poll.options as opt (opt.id)}
+      {@const votesCount = opt.votes?.length || 0}
+      {@const percentage = totalVotes > 0 ? Math.round((votesCount / totalVotes) * 100) : 0}
+      {@const isMyVote = opt.votes?.includes(currentUserId)}
 
-    {#if !hasVoted && poll.status === 'active'}
-      <p class="text-xs text-center text-gray mt-3">Select an option to cast your vote</p>
-    {/if}
+      <button 
+        class="poll-option-btn" 
+        class:voted={isMyVote}
+        disabled={hasVoted || poll.status === 'closed'}
+        onclick={() => onvote?.(opt.id)}
+      >
+        <div class="poll-option-fill" style="width: {percentage}%"></div>
+        <div class="poll-option-content flex items-center justify-between">
+          <span class="option-text font-semibold">{opt.text} {isMyVote ? '✓' : ''}</span>
+          <span class="option-stats text-xs">{votesCount} votes ({percentage}%)</span>
+        </div>
+      </button>
+    {/each}
+  </div>
+
+  <div class="poll-footer mt-4 pt-3 border-t text-xs text-gray flex justify-between">
+    <span>Created by {poll.createdByName || 'Member'}</span>
+    <span>{hasVoted ? 'You have voted' : 'Tap option to vote'}</span>
   </div>
 </div>
 
 <style>
-  .poll-card {
-    border-left: 4px solid var(--terracotta);
-  }
-
-  .poll-question {
-    font-size: 1.0625rem;
-    font-weight: 700;
-    color: var(--forest);
-    margin-bottom: 2px;
-  }
-
-  .poll-options {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
-  }
-
   .poll-option-btn {
     position: relative;
     width: 100%;
-    text-align: left;
-    background: var(--cream);
     border: 1.5px solid var(--border);
     border-radius: var(--radius-md);
+    background: var(--white);
     padding: var(--sp-3) var(--sp-4);
     cursor: pointer;
     overflow: hidden;
-    transition: all var(--transition-fast);
-    font-family: inherit;
+    text-align: left;
+    transition: border-color var(--transition-fast);
   }
 
-  .poll-option-btn:not(.disabled):hover {
+  .poll-option-btn:hover:not(:disabled) {
     border-color: var(--forest);
-    background: var(--cream-dark);
   }
 
-  .poll-option-btn.selected {
-    border-color: var(--terracotta);
+  .poll-option-btn.voted {
+    border-color: var(--forest);
   }
 
-  .poll-fill {
+  .poll-option-fill {
     position: absolute;
     top: 0;
     left: 0;
     bottom: 0;
-    background: rgba(217, 119, 69, 0.18);
-    transition: width 0.5s ease;
-    z-index: 1;
+    background: var(--forest-10);
+    transition: width 0.4s ease;
   }
 
   .poll-option-content {
     position: relative;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    color: var(--forest);
+    z-index: 1;
   }
 
-  .option-pct {
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: var(--terracotta);
-  }
+  .border-t { border-top: 1px solid var(--border); }
 </style>

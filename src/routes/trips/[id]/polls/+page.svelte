@@ -1,69 +1,58 @@
-<script lang="ts">
+<script>
   import { page } from '$app/stores';
-  import { tripService } from '$lib/services/tripService';
-  import { currentUser, notifications } from '$lib/stores';
+  import { tripService } from '$lib/services/tripService.js';
+  import { currentUser, notifications } from '$lib/stores/index.js';
   import PollCard from '$lib/components/trip/PollCard.svelte';
   import Modal from '$lib/components/ui/Modal.svelte';
-  import type { Poll } from '$lib/types';
 
   const tripId = $derived($page.params.id);
-  
-  let polls = $state<Poll[]>([]);
+
+  let polls = $state([]);
   let showCreateModal = $state(false);
 
   let question = $state('');
-  let options = $state<string[]>(['', '']);
-
-  function loadPolls() {
-    if (tripId) {
-      polls = tripService.getPolls(tripId);
-    }
-  }
+  let optionsText = $state('Baga Beach Shack\nFort Aguada Sunset\nSpice Plantation');
 
   $effect(() => {
-    loadPolls();
+    if (tripId) {
+      const unsub = tripService.subscribeToPolls(tripId, data => polls = data);
+      return () => unsub();
+    }
   });
 
-  function handleVote(pollId: string, optionId: string) {
-    const uid = $currentUser?.id || 'user_demo';
-    tripService.vote(pollId, optionId, uid);
-    notifications.show('Vote recorded!');
-    loadPolls();
-  }
+  async function handleCreatePoll() {
+    if (!question.trim()) return;
+    const opts = optionsText
+      .split('\n')
+      .map(o => o.trim())
+      .filter(Boolean)
+      .map((text, idx) => ({ id: `opt_${idx}`, text, votes: [] }));
 
-  function addOption() {
-    if (options.length < 6) {
-      options = [...options, ''];
-    }
-  }
-
-  function handleCreatePoll() {
-    const validOptions = options.filter(o => o.trim().length > 0);
-    if (!question.trim() || validOptions.length < 2) {
-      notifications.show('Please provide a question and at least 2 options.', 'error');
+    if (opts.length < 2) {
+      notifications.show('Provide at least 2 options for the poll.', 'error');
       return;
     }
 
-    tripService.createPoll({
-      tripId,
-      question: question.trim(),
-      options: validOptions.map(text => ({
-        id: 'opt_' + Math.random().toString(36).slice(2, 8),
-        text: text.trim(),
-        votes: []
-      })),
-      createdBy: $currentUser?.id || 'user_demo',
-      createdByName: $currentUser?.name || 'Pavithra',
-      createdAt: new Date().toISOString(),
-      status: 'active',
-      votedBy: []
-    });
+    try {
+      await tripService.createPoll(tripId, {
+        question: question.trim(),
+        options: opts,
+        createdBy: $currentUser?.id || 'demo_user',
+        createdByName: $currentUser?.name || 'Traveler'
+      });
 
-    notifications.show('Poll created!');
-    question = '';
-    options = ['', ''];
-    showCreateModal = false;
-    loadPolls();
+      notifications.show('Poll created! 📊');
+      showCreateModal = false;
+      question = '';
+    } catch (err) {
+      notifications.show(`Failed to create poll: ${err.message}`, 'error');
+    }
+  }
+
+  async function handleVote(pollId, optionId) {
+    if (!$currentUser) return;
+    await tripService.votePoll(tripId, pollId, optionId, $currentUser.id);
+    notifications.show('Vote recorded!');
   }
 </script>
 
@@ -74,20 +63,20 @@
 <div class="polls-tab">
   <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
     <div>
-      <h2 class="section-title">📊 Group Polls & Decision Hub</h2>
-      <p class="text-xs text-gray">Create quick polls to decide restaurants, activities, and schedules democratically.</p>
+      <h2 class="section-title">📊 Group Voting & Decisions</h2>
+      <p class="text-xs text-gray">Resolve group destination choices, dining spots, and stay preferences easily.</p>
     </div>
 
     <button class="btn btn-primary" onclick={() => showCreateModal = true}>
-      + Create Poll
+      + Create New Poll
     </button>
   </div>
 
   {#if polls.length === 0}
-    <div class="card p-12 text-center">
-      <div class="text-4xl mb-2">🗳️</div>
-      <h4 class="text-forest mb-1">No polls created yet</h4>
-      <p class="text-gray text-xs mb-4">Start a poll to let your travel group vote on dining, activities, or meet times.</p>
+    <div class="card p-10 text-center">
+      <div class="text-4xl mb-2">📊</div>
+      <h4 class="text-forest mb-1">No group polls active</h4>
+      <p class="text-gray text-xs mb-4">Create a poll to decide itinerary activities or dinner choices together.</p>
       <button class="btn btn-primary btn-sm" onclick={() => showCreateModal = true}>
         + Create First Poll
       </button>
@@ -97,14 +86,13 @@
       {#each polls as poll (poll.id)}
         <PollCard 
           {poll} 
-          currentUserId={$currentUser?.id || 'user_demo'}
-          onvote={handleVote}
+          currentUserId={$currentUser?.id || ''}
+          onvote={(optId) => handleVote(poll.id, optId)}
         />
       {/each}
     </div>
   {/if}
 
-  <!-- Create Poll Modal -->
   {#if showCreateModal}
     <Modal title="Create Group Poll" onclose={() => showCreateModal = false}>
       <form class="flex-col gap-4" onsubmit={(e) => { e.preventDefault(); handleCreatePoll(); }}>
@@ -115,48 +103,27 @@
             type="text" 
             class="input" 
             bind:value={question} 
-            placeholder="e.g. Where should we have dinner tonight?" 
+            placeholder="e.g. Which beach shack for Friday dinner?" 
             required 
           />
         </div>
 
         <div class="input-group">
-          <label for="option1">Poll Options</label>
-          <div class="flex-col gap-2">
-            {#each options as opt, i}
-              <input 
-                id={i === 0 ? "option1" : undefined}
-                type="text" 
-                class="input" 
-                bind:value={options[i]} 
-                placeholder="Option {i + 1}" 
-                required 
-              />
-            {/each}
-          </div>
-
-          {#if options.length < 6}
-            <button type="button" class="btn btn-ghost btn-sm text-forest self-start mt-2" onclick={addOption}>
-              + Add Another Option
-            </button>
-          {/if}
+          <label for="pollOpts">Poll Options (One option per line)</label>
+          <textarea 
+            id="pollOpts"
+            class="input" 
+            rows="4" 
+            bind:value={optionsText}
+            required
+          ></textarea>
         </div>
 
         <div class="flex justify-end gap-3 mt-4">
-          <button type="button" class="btn btn-cream" onclick={() => showCreateModal = false}>
-            Cancel
-          </button>
-          <button type="submit" class="btn btn-primary">
-            Publish Poll
-          </button>
+          <button type="button" class="btn btn-cream" onclick={() => showCreateModal = false}>Cancel</button>
+          <button type="submit" class="btn btn-primary">Launch Poll</button>
         </div>
       </form>
     </Modal>
   {/if}
 </div>
-
-<style>
-  .self-start {
-    align-self: flex-start;
-  }
-</style>

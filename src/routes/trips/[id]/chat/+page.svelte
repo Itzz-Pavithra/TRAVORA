@@ -1,140 +1,82 @@
-<script lang="ts">
+<script>
   import { page } from '$app/stores';
-  import { onMount, tick } from 'svelte';
-  import { tripService } from '$lib/services/tripService';
-  import { currentUser } from '$lib/stores';
+  import { tripService } from '$lib/services/tripService.js';
+  import { currentUser } from '$lib/stores/index.js';
   import ChatMessage from '$lib/components/trip/ChatMessage.svelte';
-  import type { Message } from '$lib/types';
 
   const tripId = $derived($page.params.id);
-  
-  let messages = $state<Message[]>([]);
-  let messageInput = $state('');
-  let chatScrollContainer: HTMLDivElement | undefined = $state();
 
-  function loadMessages() {
-    if (tripId) {
-      messages = tripService.getMessages(tripId);
-      scrollToBottom();
-    }
-  }
+  let messages = $state([]);
+  let inputMessage = $state('');
 
   $effect(() => {
-    loadMessages();
+    if (tripId) {
+      const unsub = tripService.subscribeToMessages(tripId, data => messages = data);
+      return () => unsub();
+    }
   });
 
-  async function scrollToBottom() {
-    await tick();
-    if (chatScrollContainer) {
-      chatScrollContainer.scrollTop = chatScrollContainer.scrollHeight;
-    }
-  }
+  async function handleSend() {
+    if (!inputMessage.trim()) return;
+    const text = inputMessage.trim();
+    inputMessage = '';
 
-  function handleSend() {
-    if (!messageInput.trim()) return;
-
-    tripService.sendMessage({
-      tripId,
-      userId: $currentUser?.id || 'user_demo',
-      userName: $currentUser?.name || 'Pavithra',
-      avatarColor: $currentUser?.avatarColor || '#D97745',
-      content: messageInput.trim(),
-      timestamp: new Date().toISOString(),
-      type: 'text'
+    await tripService.sendMessage(tripId, {
+      senderId: $currentUser?.id || 'user_demo',
+      senderName: $currentUser?.name || 'Traveler',
+      senderAvatarColor: $currentUser?.avatarColor || '#173F35',
+      text
     });
-
-    messageInput = '';
-    loadMessages();
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
   }
 </script>
 
 <svelte:head>
-  <title>Trip Chat — Travora</title>
+  <title>Group Chat — Travora</title>
 </svelte:head>
 
-<div class="chat-tab">
-  <div class="flex items-center justify-between mb-4">
-    <div>
-      <h2 class="section-title">💬 Trip Group Chat</h2>
-      <p class="text-xs text-gray">Private discussion space for trip members.</p>
-    </div>
+<div class="chat-tab flex-col h-full">
+  <div class="mb-4">
+    <h2 class="section-title">💬 Real-Time Group Chat</h2>
+    <p class="text-xs text-gray">Discuss plans, share links, and coordinate with all trip members.</p>
   </div>
 
-  <div class="chat-wrapper card">
-    <!-- Chat Messages Scroll Area -->
-    <div class="chat-messages-scroll" bind:this={chatScrollContainer}>
-      <div class="chat-start-badge">
-        <span>🔒 This is the start of your private group conversation</span>
+  <div class="chat-messages-box card p-4 flex-1 mb-4">
+    {#if messages.length === 0}
+      <div class="p-8 text-center text-gray">
+        No messages sent yet. Break the ice and start the group chat! 💬
       </div>
-
-      {#each messages as msg (msg.id)}
-        <ChatMessage 
-          message={msg} 
-          isOwn={msg.userId === ($currentUser?.id || 'user_demo')} 
-        />
-      {/each}
-    </div>
-
-    <!-- Message Input Bar -->
-    <form class="chat-input-bar" onsubmit={(e) => { e.preventDefault(); handleSend(); }}>
-      <input 
-        type="text" 
-        class="input chat-input" 
-        bind:value={messageInput}
-        onkeydown={handleKeydown}
-        placeholder="Type a message to your travel group..." 
-      />
-      <button type="submit" class="btn btn-primary btn-icon" disabled={!messageInput.trim()} aria-label="Send message">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
-    </form>
+    {:else}
+      <div class="flex-col gap-3">
+        {#each messages as msg (msg.id)}
+          <ChatMessage {msg} currentUserId={$currentUser?.id || ''} />
+        {/each}
+      </div>
+    {/if}
   </div>
+
+  <form class="chat-input-bar card p-3 flex gap-2" onsubmit={(e) => { e.preventDefault(); handleSend(); }}>
+    <input 
+      type="text" 
+      class="input flex-1" 
+      bind:value={inputMessage} 
+      placeholder="Type a message to trip members..." 
+    />
+    <button type="submit" class="btn btn-primary" disabled={!inputMessage.trim()}>
+      Send
+    </button>
+  </form>
 </div>
 
 <style>
-  .chat-wrapper {
-    height: 580px;
+  .chat-tab {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    height: 70vh;
   }
 
-  .chat-messages-scroll {
-    flex: 1;
+  .chat-messages-box {
     overflow-y: auto;
-    padding: var(--sp-6);
     background: var(--cream);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .chat-start-badge {
-    text-align: center;
-    font-size: 0.75rem;
-    color: var(--gray);
-    margin-bottom: var(--sp-6);
-    background: rgba(102, 115, 111, 0.1);
-    padding: var(--sp-2) var(--sp-4);
-    border-radius: var(--radius-full);
-    align-self: center;
-  }
-
-  .chat-input-bar {
-    display: flex;
-    gap: var(--sp-2);
-    padding: var(--sp-4);
-    background: var(--white);
-    border-top: 1px solid var(--border);
-  }
-
-  .chat-input {
-    flex: 1;
+    border: 1.5px solid var(--border);
   }
 </style>
