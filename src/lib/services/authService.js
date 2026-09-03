@@ -20,9 +20,24 @@ export const authService = {
   async signUp(name, email, password) {
     if (!auth || !db) throw new Error('Firebase Auth or Firestore is not initialized');
     
-    // 1. Create authenticated user in Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const fbUser = userCredential.user;
+    let fbUser = null;
+
+    // 1. Create or recover authenticated user in Firebase Auth
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      fbUser = userCredential.user;
+    } catch (authErr) {
+      if (authErr.code === 'auth/email-already-in-use') {
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          fbUser = userCredential.user;
+        } catch {
+          throw new Error('An account with this email already exists. Please log in.');
+        }
+      } else {
+        throw authErr;
+      }
+    }
 
     // 2. Update display name in Auth
     try {
@@ -35,7 +50,7 @@ export const authService = {
     const userData = {
       id: fbUser.uid,
       name: name.trim(),
-      email: email.trim(),
+      email: email.trim().toLowerCase(),
       avatarColor,
       travelPreference: null,
       currency: 'INR',
@@ -59,11 +74,12 @@ export const authService = {
     } catch (err) {
       console.error('Error writing user profile to Firestore:', err);
       if (err.code === 'permission-denied') {
-        throw new Error('Firestore permission error: Could not create user profile document (users/' + fbUser.uid + '). Please check Firestore security rules.');
+        throw new Error('Firestore permission error: Could not create user profile document (users/' + fbUser.uid + '). Please publish the updated firestore.rules in Firebase Console.');
       }
       throw err;
     }
 
+    // 4. Update store only after Firestore write succeeds
     currentUser.set(userData);
     return userData;
   },
@@ -141,32 +157,12 @@ export const authService = {
         if (userDoc.exists()) {
           callback(userDoc.data());
         } else {
-          const newUser = {
-            id: fbUser.uid,
-            name: fbUser.displayName || 'Traveler',
-            email: fbUser.email || '',
-            avatarColor: avatarColors[0],
-            travelPreference: null,
-            currency: 'INR',
-            language: 'en',
-            tripsCount: 0,
-            placesCount: 0,
-            memoriesCount: 0,
-            savedPlacesCount: 0,
-            joinedAt: new Date().toISOString(),
-            profileVisibility: 'public',
-            memoryVisibility: 'friends'
-          };
-          await setDoc(doc(db, 'users', fbUser.uid), newUser, { merge: true });
-          callback(newUser);
+          // If Firestore profile document does not exist yet, do not assume logged in
+          callback(null);
         }
       } catch (err) {
-        console.warn('listenToAuth listener fallback:', err);
-        callback({
-          id: fbUser.uid,
-          name: fbUser.displayName || 'Traveler',
-          email: fbUser.email || ''
-        });
+        console.warn('listenToAuth listener check:', err);
+        callback(null);
       }
     });
   }
