@@ -16,28 +16,14 @@
 
     try {
       const user = await authService.signIn(email, password);
-      notifications.show(`Welcome back, ${user.name.split(' ')[0]}! 👋`);
+      notifications.show(`Welcome back, ${user.name ? user.name.split(' ')[0] : 'Traveler'}! 👋`);
       goto('/home');
     } catch (err) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        error = 'Invalid email or password. You can also click "Use Demo Account" below.';
+        error = 'Invalid email or password. Please try again.';
       } else {
         error = err.message || 'Login failed. Please check your network and credentials.';
       }
-    } finally {
-      loading = false;
-    }
-  }
-
-  async function handleDemoLogin() {
-    loading = true;
-    error = '';
-    try {
-      const user = await authService.signInDemo();
-      notifications.show(`Welcome to Travora, ${user.name.split(' ')[0]}! ✈️`);
-      goto('/home');
-    } catch (err) {
-      error = 'Could not sign in with demo account. ' + err.message;
     } finally {
       loading = false;
     }
@@ -133,14 +119,8 @@
         </button>
       </form>
 
-      <div class="auth-divider"><span>or</span></div>
-
-      <button class="btn btn-cream btn-lg w-full" onclick={handleDemoLogin} disabled={loading}>
-        ✨ Use Demo Account
-      </button>
-
       <p class="auth-switch">
-        Don't have an account? <a href="/signup">Sign up</a>
+        Don't have an account? <a href="/signup">Create account</a>
       </p>
     </div>
   </div>
@@ -289,22 +269,6 @@
   }
 
   .w-full { width: 100%; }
-
-  .auth-divider {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3);
-    margin: var(--sp-5) 0;
-    color: var(--gray-light);
-    font-size: 0.875rem;
-  }
-
-  .auth-divider::before, .auth-divider::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
 
   .auth-switch {
     text-align: center;

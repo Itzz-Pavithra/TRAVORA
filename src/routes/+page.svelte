@@ -102,14 +102,6 @@
         <a href="/login" class="btn btn-ghost btn-sm">Log in</a>
         <a href="/signup" class="btn btn-primary btn-sm">Get Started</a>
       </div>
-
-      <!-- Demo quick login -->
-      <div class="demo-hint">
-        <span class="text-xs text-gray">Demo:</span>
-        <button class="btn btn-sm btn-cream" onclick={() => { goto('/home'); }}>
-          ✨ Enter App
-        </button>
-      </div>
     </div>
   </div>
 </header>
@@ -474,12 +466,6 @@
     align-items: center;
     gap: var(--sp-2);
     margin-left: auto;
-  }
-
-  .demo-hint {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
   }
 
   /* ---- HERO ---- */
@@ -1050,7 +1036,6 @@
     .footer-links { flex-wrap: wrap; gap: var(--sp-8); }
     .hero-stats { gap: var(--sp-5); }
     .memory-showcase { grid-template-columns: 1fr; }
-    .demo-hint { display: none; }
   }
 
   @media (max-width: 480px) {

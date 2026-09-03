@@ -7,7 +7,8 @@ import { tripService } from '$lib/services/tripService.js';
 import { savedService } from '$lib/services/savedService.js';
 
 function createUserStore() {
-  const { subscribe, set } = writable(null);
+  // Initial state is undefined (loading auth state)
+  const { subscribe, set } = writable(undefined);
   let unsubscribeAuth = null;
 
   return {

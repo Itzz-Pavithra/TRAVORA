@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '$lib/firebase/client.js';
+import { currentUser } from '$lib/stores/index.js';
 
 const avatarColors = ['#173F35', '#D97745', '#66736F', '#1f5448', '#c4632e'];
 
@@ -63,6 +64,7 @@ export const authService = {
       throw err;
     }
 
+    currentUser.set(userData);
     return userData;
   },
 
@@ -72,53 +74,42 @@ export const authService = {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const fbUser = userCredential.user;
 
+    let userData = null;
     try {
       const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
       if (userDoc.exists()) {
-        return userDoc.data();
+        userData = userDoc.data();
       }
     } catch (err) {
       console.warn('Error reading user profile doc on sign in:', err);
     }
 
-    const userData = {
-      id: fbUser.uid,
-      name: fbUser.displayName || email.split('@')[0],
-      email: fbUser.email || email,
-      avatarColor: avatarColors[0],
-      travelPreference: null,
-      currency: 'INR',
-      language: 'en',
-      tripsCount: 0,
-      placesCount: 0,
-      memoriesCount: 0,
-      savedPlacesCount: 0,
-      joinedAt: new Date().toISOString(),
-      profileVisibility: 'public',
-      memoryVisibility: 'friends'
-    };
-
-    try {
-      await setDoc(doc(db, 'users', fbUser.uid), userData, { merge: true });
-    } catch {
-      // Ignore if doc already created
-    }
-
-    return userData;
-  },
-
-  /** Sign in using Demo account */
-  async signInDemo() {
-    const demoEmail = 'pavithra@travora.app';
-    const demoPass = 'travora123';
-    try {
-      return await this.signIn(demoEmail, demoPass);
-    } catch (err) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        return await this.signUp('Pavithra', demoEmail, demoPass);
+    if (!userData) {
+      userData = {
+        id: fbUser.uid,
+        name: fbUser.displayName || email.split('@')[0],
+        email: fbUser.email || email,
+        avatarColor: avatarColors[0],
+        travelPreference: null,
+        currency: 'INR',
+        language: 'en',
+        tripsCount: 0,
+        placesCount: 0,
+        memoriesCount: 0,
+        savedPlacesCount: 0,
+        joinedAt: new Date().toISOString(),
+        profileVisibility: 'public',
+        memoryVisibility: 'friends'
+      };
+      try {
+        await setDoc(doc(db, 'users', fbUser.uid), userData, { merge: true });
+      } catch {
+        // Ignore
       }
-      throw err;
     }
+
+    currentUser.set(userData);
+    return userData;
   },
 
   /** Sign out */

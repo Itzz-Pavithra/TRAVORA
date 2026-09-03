@@ -37,7 +37,7 @@
       await tripService.createPoll(tripId, {
         question: question.trim(),
         options: opts,
-        createdBy: $currentUser?.id || 'demo_user',
+        createdBy: $currentUser?.id || '',
         createdByName: $currentUser?.name || 'Traveler'
       });
 

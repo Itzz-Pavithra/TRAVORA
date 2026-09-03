@@ -22,7 +22,7 @@
     inputMessage = '';
 
     await tripService.sendMessage(tripId, {
-      senderId: $currentUser?.id || 'user_demo',
+      senderId: $currentUser?.id || '',
       senderName: $currentUser?.name || 'Traveler',
       senderAvatarColor: $currentUser?.avatarColor || '#173F35',
       text

@@ -10,10 +10,12 @@
 
   let { children } = $props();
 
-  const publicRoutes = ['/', '/login', '/signup', '/onboarding'];
+  const publicRoutes = ['/', '/login', '/signup'];
+  const authOnlyRoutes = ['/login', '/signup'];
   const noNavRoutes = ['/', '/login', '/signup', '/onboarding'];
 
   const isPublicRoute = $derived(publicRoutes.some(r => $page.url.pathname === r));
+  const isAuthOnlyRoute = $derived(authOnlyRoutes.some(r => $page.url.pathname === r));
   const showNav = $derived(!noNavRoutes.some(r => $page.url.pathname === r));
 
   onMount(() => {
@@ -22,8 +24,22 @@
 
   $effect(() => {
     if (typeof window !== 'undefined') {
-      if (!isPublicRoute && $currentUser === null) {
-        goto('/login');
+      const user = $currentUser;
+      const pathname = $page.url.pathname;
+
+      // Only perform routing decisions once Firebase auth initialization completes (user !== undefined)
+      if (user !== undefined) {
+        if (user === null) {
+          // Unauthenticated: if on a protected route, redirect to /login
+          if (!isPublicRoute) {
+            goto('/login');
+          }
+        } else {
+          // Authenticated: if visiting /login or /signup, redirect to /home
+          if (isAuthOnlyRoute) {
+            goto('/home');
+          }
+        }
       }
     }
   });
