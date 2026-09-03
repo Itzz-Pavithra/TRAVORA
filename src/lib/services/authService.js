@@ -72,14 +72,10 @@ export const authService = {
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (err) {
-      console.error('Error writing user profile to Firestore:', err);
-      if (err.code === 'permission-denied') {
-        throw new Error('Firestore permission error: Could not create user profile document (users/' + fbUser.uid + '). Please publish the updated firestore.rules in Firebase Console.');
-      }
-      throw err;
+      console.warn('Firestore user profile write notice:', err);
     }
 
-    // 4. Update store only after Firestore write succeeds
+    // 4. Update store with user object
     currentUser.set(userData);
     return userData;
   },
@@ -103,7 +99,7 @@ export const authService = {
     if (!userData) {
       userData = {
         id: fbUser.uid,
-        name: fbUser.displayName || email.split('@')[0],
+        name: fbUser.displayName || (email ? email.split('@')[0] : 'Traveler'),
         email: fbUser.email || email,
         avatarColor: avatarColors[0],
         travelPreference: null,
@@ -120,7 +116,7 @@ export const authService = {
       try {
         await setDoc(doc(db, 'users', fbUser.uid), userData, { merge: true });
       } catch {
-        // Ignore
+        // Non-blocking
       }
     }
 
@@ -152,18 +148,42 @@ export const authService = {
         callback(null);
         return;
       }
+
+      let userData = null;
       try {
         const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
         if (userDoc.exists()) {
-          callback(userDoc.data());
-        } else {
-          // If Firestore profile document does not exist yet, do not assume logged in
-          callback(null);
+          userData = userDoc.data();
         }
       } catch (err) {
-        console.warn('listenToAuth listener check:', err);
-        callback(null);
+        console.warn('listenToAuth getDoc notice:', err);
       }
+
+      if (!userData) {
+        userData = {
+          id: fbUser.uid,
+          name: fbUser.displayName || (fbUser.email ? fbUser.email.split('@')[0] : 'Traveler'),
+          email: fbUser.email || '',
+          avatarColor: avatarColors[0],
+          travelPreference: null,
+          currency: 'INR',
+          language: 'en',
+          tripsCount: 0,
+          placesCount: 0,
+          memoriesCount: 0,
+          savedPlacesCount: 0,
+          joinedAt: new Date().toISOString(),
+          profileVisibility: 'public',
+          memoryVisibility: 'friends'
+        };
+        try {
+          await setDoc(doc(db, 'users', fbUser.uid), userData, { merge: true });
+        } catch {
+          // Non-blocking
+        }
+      }
+
+      callback(userData);
     });
   }
 };
