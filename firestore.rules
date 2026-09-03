@@ -5,14 +5,19 @@ service cloud.firestore {
     // User Profiles
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Trips
+    // Trips Collection
     match /trips/{tripId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
 
-      // Trip Subcollections
+      // Trip Subcollections (itinerary, members, expenses, chat, polls, challenges, memories, transport, accommodations, activities)
       match /{subcollection}/{docId} {
         allow read, write: if request.auth != null;
       }
@@ -20,7 +25,9 @@ service cloud.firestore {
 
     // Saved Places
     match /savedPlaces/{savedId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
     }
   }
 }

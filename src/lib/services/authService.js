@@ -17,17 +17,24 @@ const avatarColors = ['#173F35', '#D97745', '#66736F', '#1f5448', '#c4632e'];
 export const authService = {
   /** Sign up with email, password, and name */
   async signUp(name, email, password) {
-    if (!auth || !db) throw new Error('Firebase is not initialized');
+    if (!auth || !db) throw new Error('Firebase Auth or Firestore is not initialized');
+    
+    // 1. Create authenticated user in Firebase Auth
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const fbUser = userCredential.user;
 
-    await updateProfile(fbUser, { displayName: name });
+    // 2. Update display name in Auth
+    try {
+      await updateProfile(fbUser, { displayName: name });
+    } catch {
+      // Non-critical if display name update fails
+    }
 
     const avatarColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
     const userData = {
       id: fbUser.uid,
-      name,
-      email,
+      name: name.trim(),
+      email: email.trim(),
       avatarColor,
       travelPreference: null,
       currency: 'INR',
@@ -41,24 +48,37 @@ export const authService = {
       memoryVisibility: 'friends'
     };
 
-    await setDoc(doc(db, 'users', fbUser.uid), {
-      ...userData,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+    // 3. Write user profile document to Firestore users/{uid}
+    try {
+      await setDoc(doc(db, 'users', fbUser.uid), {
+        ...userData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error writing user profile to Firestore:', err);
+      if (err.code === 'permission-denied') {
+        throw new Error('Firestore permission error: Could not create user profile document (users/' + fbUser.uid + '). Please check Firestore security rules.');
+      }
+      throw err;
+    }
 
     return userData;
   },
 
   /** Sign in with email and password */
   async signIn(email, password) {
-    if (!auth || !db) throw new Error('Firebase is not initialized');
+    if (!auth || !db) throw new Error('Firebase Auth or Firestore is not initialized');
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const fbUser = userCredential.user;
 
-    const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-    if (userDoc.exists()) {
-      return userDoc.data();
+    try {
+      const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
+      if (userDoc.exists()) {
+        return userDoc.data();
+      }
+    } catch (err) {
+      console.warn('Error reading user profile doc on sign in:', err);
     }
 
     const userData = {
@@ -77,7 +97,13 @@ export const authService = {
       profileVisibility: 'public',
       memoryVisibility: 'friends'
     };
-    await setDoc(doc(db, 'users', fbUser.uid), userData, { merge: true });
+
+    try {
+      await setDoc(doc(db, 'users', fbUser.uid), userData, { merge: true });
+    } catch {
+      // Ignore if doc already created
+    }
+
     return userData;
   },
 
@@ -143,8 +169,13 @@ export const authService = {
           await setDoc(doc(db, 'users', fbUser.uid), newUser, { merge: true });
           callback(newUser);
         }
-      } catch {
-        callback(null);
+      } catch (err) {
+        console.warn('listenToAuth listener fallback:', err);
+        callback({
+          id: fbUser.uid,
+          name: fbUser.displayName || 'Traveler',
+          email: fbUser.email || ''
+        });
       }
     });
   }
